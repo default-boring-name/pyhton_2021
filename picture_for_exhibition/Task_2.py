@@ -96,7 +96,7 @@ def draw_bamboo(size):
 
     return pg.transform.scale(body, size)
 
-def draw_panda(size):
+def draw_panda():
     body = pg.Surface((400, 450))
     body.set_colorkey(colors['None'])
     body.fill(colors['None'])
@@ -140,9 +140,43 @@ def draw_panda(size):
     head.blit(pg.transform.rotate(ear, 50), (3, -10))
     head.blit(pg.transform.flip(pg.transform.rotate(ear, 45), True, False), (140, -5))
 
+    back_leg = pg.Surface((190, 100))
+    back_leg.set_colorkey(colors['None'])
+    back_leg.fill(colors['None'])
+    pg.draw.circle(back_leg, colors['black'], (150, 45), 45)
+    pg.draw.polygon(back_leg, colors['black'], [(0, 20), (0, 30), (30, 65), (100, 90),(150, 90), (160, 0), (0, 20)])
+
+    back_back_leg = pg.Surface((190, 25))
+    back_back_leg.set_colorkey(colors['None'])
+    back_back_leg.fill(colors['None'])
+    pg.draw.ellipse(back_back_leg, colors['black'],
+    pg.Rect((-90, 0), (420, 240)))
+    back_leg.blit(back_back_leg, (-20, 0))
+
+    front_left_leg = pg.Surface((154, 300))
+    front_left_leg.set_colorkey(colors['None'])
+    front_left_leg.fill(colors['None'])
+    pg.draw.polygon(front_left_leg, colors['black'],[(154, 0), (100, 0), (100, 100), (60, 220), (154, 200)])
+
+    front_left_feet = pg.Surface((100, 140))
+    front_left_feet.set_colorkey(colors['None'])
+    front_left_feet.fill(colors['None'])
+    pg.draw.ellipse(front_left_feet, colors['black'], front_left_feet.get_rect())
+    front_left_leg.blit(pg.transform.rotate(front_left_feet, -50), (20, 120))
+    
+    front_right_leg = pg.Surface((130, 170))
+    front_right_leg.set_colorkey(colors['None'])
+    front_right_leg.fill(colors['None'])
+    pg.draw.polygon(front_right_leg, colors['black'], [(0, 0), (80, 0), (110, 80), (75, 170), (0, 40)])
+
+    back_front_right_leg = pg.transform.scale(back_back_leg, (170, 60))
+    front_right_leg.blit(pg.transform.rotate(back_front_right_leg, 110), (-40, 10))
+    body.blit(pg.transform.rotate(back_leg, -110), (170, 160))
+    body.blit(front_left_leg, (40, 100))
+    body.blit(pg.transform.rotate(front_right_leg, -10), (-10, 150))
     body.blit(head, (-15, 30))
 
-    return pg.transform.scale(body, (400, 450))
+    return body
 
 pg.init()
 
@@ -155,7 +189,7 @@ main_surf.fill(colors['peach'])
 main_surf.blit(draw_bamboo((225, 350)), (280, 230))
 main_surf.blit(draw_bamboo((500, 500)), (300, 50))
 
-main_surf.blit(draw_panda((400, 400)), (600, 350))
+main_surf.blit(draw_panda(), (600, 350))
 
 pg.display.update()
 clock = pg.time.Clock()
