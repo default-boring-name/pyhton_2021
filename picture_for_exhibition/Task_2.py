@@ -96,7 +96,7 @@ def draw_bamboo(size):
 
     return pg.transform.scale(body, size)
 
-def draw_panda():
+def draw_panda(size):
     body = pg.Surface((400, 450))
     body.set_colorkey(colors['None'])
     body.fill(colors['None'])
@@ -176,7 +176,7 @@ def draw_panda():
     body.blit(pg.transform.rotate(front_right_leg, -10), (-10, 150))
     body.blit(head, (-15, 30))
 
-    return body
+    return pg.transform.scale(body, size)
 
 pg.init()
 
@@ -189,7 +189,7 @@ main_surf.fill(colors['peach'])
 main_surf.blit(draw_bamboo((225, 350)), (280, 230))
 main_surf.blit(draw_bamboo((500, 500)), (300, 50))
 
-main_surf.blit(draw_panda(), (600, 350))
+main_surf.blit(draw_panda((400, 450)), (600, 350))
 
 pg.display.update()
 clock = pg.time.Clock()
