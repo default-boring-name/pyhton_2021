@@ -38,7 +38,61 @@ def draw_bamboo():
     stem.blit(stem_sect[2], (0, 133))
     stem.blit(stem_sect[3], (35, 8))
 
+    big_branch = pg.Surface((400, 200))
+    big_branch.set_colorkey(colors['None'])
+    big_branch.fill(colors['None'])
+                
+    big_branch_stem = pg.Surface((350, 50))
+    big_branch_stem.set_colorkey(colors['None'])
+    big_branch_stem.fill(colors['None'])
+                                    
+    pg.draw.ellipse(big_branch_stem, colors['green'], pg.Rect((-50, 0), (450, 200)), 5)
+    big_branch_stem = pg.transform.rotate(big_branch_stem, 25)
+    
+    big_branch.blit(big_branch_stem, (0, 0))
+                                                                
+    branch_leaf = pg.Surface((90, 15))
+    branch_leaf.set_colorkey(colors['None'])
+    branch_leaf.fill(colors['None'])
+    
+    pg.draw.ellipse(branch_leaf, colors['green'], branch_leaf.get_rect())
+    branch_leaf = pg.transform.rotate(branch_leaf, -70)
+    
+    big_branch.blit(branch_leaf, (135, 90))
+    big_branch.blit(branch_leaf, (190, 80))
+    big_branch.blit(branch_leaf, (225, 65))
+    big_branch.blit(branch_leaf, (250, 40))
+    big_branch.blit(branch_leaf, (280, 40))
+
+    big_branch = pg.transform.scale(big_branch, (big_branch.get_width(), int(big_branch.get_height() * 0.8)))
+
+    small_branch = pg.Surface((200, 175))
+    small_branch.set_colorkey(colors['None'])
+    small_branch.fill(colors['None'])
+                
+    small_branch_stem = pg.Surface((150, 100))
+    small_branch_stem.set_colorkey(colors['None'])
+    small_branch_stem.fill(colors['None'])
+                                    
+    pg.draw.ellipse(small_branch_stem, colors['green'], pg.Rect((-150, 0), (300, 250)), 5)
+    small_branch_stem = pg.transform.rotate(small_branch_stem, 60)
+                                                    
+    small_branch.blit(small_branch_stem, (0, 0))
+    small_branch.blit(branch_leaf, (75, 55))
+    small_branch.blit(branch_leaf, (110, 55))
+    small_branch.blit(branch_leaf, (140, 55))
+
+    left_big_branch = pg.transform.flip(big_branch, True, False)
+    left_big_branch = pg.transform.scale(left_big_branch, (460, 200))
+
+    left_small_branch = pg.transform.flip(small_branch, True, False)
+    left_small_branch = pg.transform.scale(left_small_branch, (230, 175))
+
     body.blit(stem, (375, 0))
+    body.blit(big_branch, (425, -20))
+    body.blit(left_big_branch, (-70, -10))
+    body.blit(small_branch, (425, 150))
+    body.blit(left_small_branch, (137, 180))
 
     return body 
 
