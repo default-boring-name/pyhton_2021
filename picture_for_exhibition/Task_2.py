@@ -10,7 +10,7 @@ colors = {
          }
 FPS = 30
 
-def draw_bamboo():
+def draw_bamboo(size):
     body = pg.Surface((780, 480))
     body.set_colorkey(colors['None'])
     body.fill(colors['None'])
@@ -94,7 +94,7 @@ def draw_bamboo():
     body.blit(small_branch, (425, 150))
     body.blit(left_small_branch, (137, 180))
 
-    return body 
+    return pg.transform.scale(body, size)
 
 pg.init()
 
@@ -104,7 +104,8 @@ screen = pg.display.set_mode(window_size)
 main_surf = pg.display.get_surface()
 main_surf.fill(colors['peach'])
 
-main_surf.blit(draw_bamboo(), (280, 230))
+main_surf.blit(draw_bamboo((225, 350)), (280, 230))
+main_surf.blit(draw_bamboo((500, 500)), (300, 50))
 
 pg.display.update()
 clock = pg.time.Clock()
