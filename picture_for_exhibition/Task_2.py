@@ -96,6 +96,54 @@ def draw_bamboo(size):
 
     return pg.transform.scale(body, size)
 
+def draw_panda(size):
+    body = pg.Surface((400, 450))
+    body.set_colorkey(colors['None'])
+    body.fill(colors['None'])
+
+    pg.draw.ellipse(body, colors['white'], pg.Rect((20, 100), (300, 165)))
+
+    head = pg.Surface((220, 210))
+    head.set_colorkey(colors['None'])
+    head.fill(colors['None'])
+                                    
+    pg.draw.rect(head, colors['white'], pg.Rect((30, 85), (175, 60)))
+    pg.draw.ellipse(head, colors['white'], pg.Rect((30, 10), (175, 150)))
+
+    chin = pg.Surface((120, 194))
+    chin.set_colorkey(colors['None'])
+    chin.fill(colors['None'])
+    pg.draw.ellipse(chin, colors['white'], pg.Rect((0, 0), (300, 194)))
+    chin = pg.transform.rotate(chin, 60)
+    head.blit(chin, (-20, 47))
+
+    pg.draw.circle(head, colors['black'], (130, 130), 25)
+    pg.draw.ellipse(head, colors['black'], pg.Rect((27, 100), (42, 50)))
+    pg.draw.ellipse(head, colors['black'], pg.Rect((50, 175), (50, 35)))
+
+    ear = pg.Surface((80, 45))
+    ear.set_colorkey(colors['None'])
+    ear.fill(colors['None'])
+
+    upper_ear = pg.Surface((80, 40))
+    upper_ear.set_colorkey(colors['None'])
+    upper_ear.fill(colors['None'])
+    pg.draw.ellipse(upper_ear, colors['black'], pg.Rect((0, 0), (80, 50)))
+    ear.blit(upper_ear, (0,0))
+
+    down_ear = pg.Surface((80, 10))
+    down_ear.set_colorkey(colors['None'])
+    down_ear.fill(colors['None'])
+    pg.draw.ellipse(down_ear, colors['black'], pg.Rect((0, -10), (80, 20)))
+    ear.blit(down_ear, (0, 25))
+    
+    head.blit(pg.transform.rotate(ear, 50), (3, -10))
+    head.blit(pg.transform.flip(pg.transform.rotate(ear, 45), True, False), (140, -5))
+
+    body.blit(head, (-15, 30))
+
+    return pg.transform.scale(body, (400, 450))
+
 pg.init()
 
 window_size = (1200, 800)
@@ -106,6 +154,8 @@ main_surf.fill(colors['peach'])
 
 main_surf.blit(draw_bamboo((225, 350)), (280, 230))
 main_surf.blit(draw_bamboo((500, 500)), (300, 50))
+
+main_surf.blit(draw_panda((400, 400)), (600, 350))
 
 pg.display.update()
 clock = pg.time.Clock()
