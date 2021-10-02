@@ -188,15 +188,18 @@ main_surf.fill(colors['peach'])
 
 main_surf.blit(draw_bamboo((225, 350)), (280, 230))
 main_surf.blit(draw_bamboo((500, 500)), (300, 50))
+main_surf.blit(draw_bamboo((275, 450)), (800, 75))
+main_surf.blit(draw_bamboo((230, 285)), (40, 275))
 
 main_surf.blit(draw_panda((400, 450)), (600, 350))
+main_surf.blit(draw_panda((150, 120)), (475, 600))
 
 pg.display.update()
 clock = pg.time.Clock()
 running = True
 
 while running:
-    clock.tick()
+    clock.tick(FPS)
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
