@@ -27,7 +27,12 @@ class Screen:
         :param bg_color: цвет из COLORS, цвет заднего фона экрана
                          (заливка), по умолчания он белый
         '''
-        pass
+
+        self.size = dict(size)
+        self.bg_color = bg_color
+        self.surf = pg.display.set_mode((self.size["w"],
+                                         self.size["h"]))
+        self.to_draw_list = []
 
     def update(self):
         '''
@@ -35,7 +40,12 @@ class Screen:
         (делает заливку bg_color и поочереди отрисовывает
         все обЪекты, содержащиеся в списке для отрисовки)
         '''
-        pass
+
+        self.surf.fill(self.bg_color)
+        for obj in self.to_draw_list:
+            obj.draw(screen)
+
+        pg.display.update()
     
     def add_obj(self, obj):
         '''
@@ -43,7 +53,8 @@ class Screen:
         для отрисовки
         :param obj: обЪект, который нужно добавить в
                     список для отрисовки (обязательно должен
-                    иметь метод draw())
+                    иметь метод draw(), принимающий холст
+                    для отрисовки)
         '''
         pass
 
@@ -60,17 +71,15 @@ class Screen:
 
 pg.init()
 
-screen = pg.display.set_mode((WIN_SIZE["w"], WIN_SIZE["h"]))
-
-
+screen = Screen(WIN_SIZE)
 running = True
 clock = pg.time.Clock()
 
 while running:
-    clock.tick(FPS)
-    pg.display.update()
+    screen.update()
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
+    clock.tick(FPS)
 
 pg.quit()
