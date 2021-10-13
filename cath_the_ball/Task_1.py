@@ -43,7 +43,7 @@ class Screen:
 
         self.surf.fill(self.bg_color)
         for obj in self.to_draw_list:
-            obj.draw(screen)
+            obj.draw(self.surf, self.size)
 
         pg.display.update()
     
@@ -54,9 +54,11 @@ class Screen:
         :param obj: обЪект, который нужно добавить в
                     список для отрисовки (обязательно должен
                     иметь метод draw(), принимающий холст
-                    для отрисовки)
+                    для отрисовки и его размер)
         '''
-        pass
+
+        if obj not in self.to_draw_list:
+            self.to_draw_list.append(obj)
 
     def remove_obj(self, obj):
         '''
@@ -65,8 +67,9 @@ class Screen:
         :param obj: объект, который будет исключен из
                     списка для отрисовки
         '''
-        pass
 
+        if obj in self.to_draw_list:
+            self.to_draw_list.remove(obj)
 
 
 pg.init()
@@ -74,7 +77,6 @@ pg.init()
 screen = Screen(WIN_SIZE)
 running = True
 clock = pg.time.Clock()
-
 while running:
     screen.update()
     for event in pg.event.get():
