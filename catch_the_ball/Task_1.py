@@ -34,12 +34,23 @@ class OnScreenObj:
                         точки относительно левого вехнего угла
                         спрайта
         '''
-        pass
+
+        self.screen = screen
+        self.pos = dict(pos)
+        self.size = dict(size)
+        self.ref_pos = ref_pos
+        self.sprite = pg.Surface((self.size["w"], self.size["h"]), 
+                                  pg.SRCALPHA)
+        self.rect = pg.Rect((pos["x"] - ref_pos["x"], 
+                             pos["y"] - ref_pos["y"]),
+                             (size["w"], size["h"]))
+        self.manager = None
 
     def idle(self):
         '''
         Фунция описывающая дефолтное поведение объекта
         '''
+
         pass
 
     def call(self, event):
@@ -48,7 +59,8 @@ class OnScreenObj:
         :param event: объект события, которое необходимо
                       обработать
         '''
-        pass
+
+        return None
 
     def set_manager(self, event_manager):
         '''
@@ -58,6 +70,8 @@ class OnScreenObj:
                               нужно установить связь
         '''
 
+        self.manager = event_manager
+
     def move(self, pos):
         '''
         Функция предвигающая объект в указанные координаты
@@ -65,9 +79,14 @@ class OnScreenObj:
         :param pos: словарь {x, y} с координатами точки, в
                     которую необходимо переместить объект
         '''
-        pass
 
-    def draw(self, surface, allowed_space):
+        self.pos = dict(pos)
+        self.rect = pg.Rect((pos["x"] - ref_pos["x"], 
+                             pos["y"] - ref_pos["y"]),
+                             (size["w"], size["h"]))
+
+
+    def draw(self, surface):
         '''
         Функция рисующая объект на переданной поверхности
         :param surface: объект pygame.Surface, поверхность
@@ -75,7 +94,8 @@ class OnScreenObj:
         :param allowed_space: объект pygame.Rect, область 
                               в которой можно рисовать объект
         '''
-        pass
+
+        surface.blit(self.sprite, self.rect)
 
     def collide_point(self, pos):
         '''
@@ -85,7 +105,9 @@ class OnScreenObj:
                     которой нужно проверить пересечение
                     с объектом
         '''
-        pass
+
+        result =  self.rect.collidepoint((pos["x"], pos["y"]))
+        return result
 
     def collide_obj(self, another):
         '''
@@ -93,7 +115,9 @@ class OnScreenObj:
         :param another: объект OnScreeObj, для которого нужно
                         проверить факт столкновения
         '''
-        pass
+
+        result = self.rect.colliderect(another.rect)
+        return result
 
     def collide_x(self, x):
         '''
@@ -102,7 +126,9 @@ class OnScreenObj:
         :param x: абсцисса прямой, с которой надо проверить
                   пересечение
         '''
-        pass
+
+        result = self.rect.left < x and x < self.rect.right
+        return result
 
     def collide_y(self, y):
         '''
@@ -111,7 +137,9 @@ class OnScreenObj:
         :param y: ордината прямой, с которой надо проверить
                   пересечение
         '''
-        pass
+
+        result = self.rect.top < y and y < self.rect.bottom
+        return result
 
 
 class EventManager:
@@ -216,7 +244,6 @@ class Screen:
         self.surf = pg.Surface((self.size["w"],
                                 self.size["h"]), pg.SRCALPHA)
         self.to_draw_list = []
-        self.allowed_space = self.surf.get_rect()
 
     def update(self):
         '''
@@ -227,7 +254,7 @@ class Screen:
 
         self.surf.fill(self.bg_color)
         for obj in self.to_draw_list:
-            obj.draw(self.surf, self.allowed_space)
+            obj.draw(self.surf)
     
     def add_obj(self, obj):
         '''
@@ -267,10 +294,7 @@ class MainScreen(Screen):
         Screen.__init__(self, size, bg_color)
         self.surf = pg.display.set_mode((self.size["w"],
                                          self.size["h"]))
-        self.allowed_space = pg.Rect((5, 5),
-                                     (self.size["w"] - 2 * 5, 
-                                      self.size["h"] - 2 * 5))
-
+        
     def update(self):
         '''
         Функция, которая перерисовывате экран
