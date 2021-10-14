@@ -78,16 +78,20 @@ class EventManager:
     pygame события, так и пользовательские события
     '''
 
+    #События менеджера событий
+
+    REMOVEOBJ = pg.event.custom_type()
     '''
-    Сборник всех возможных событий адресованных
-    лично менеджеру событий
+    Событие данного типа должно иметь
+    атрибут target, указывающий на объект,
+    который нужно удалить
     '''
 
     def __init__(self):
         '''
         Функция для инициализация объекта менеджера событий
         '''
-        pass
+        self.pool = []
 
     def add_obj(self, obj):
         '''
@@ -97,10 +101,16 @@ class EventManager:
                     список(объект должен иметь метод 
                     idle(), описывающий дефолтное поведение
                     объекта, метод call(), принимающий 
-                    объект события
+                    объект события и возвращающий результат
+                    его обработки (в случае, если событие
+                    не было обработано необходимо вернуть
+                    None), и метод set_manger() принимающий
+                    объект типа EventManager
 
         '''
-        pass
+        if obj not in self.pool:
+            self.pool.append(obj)
+            obj.set_manager(self)
 
     def remove_obj(self, obj):
         '''
@@ -109,35 +119,52 @@ class EventManager:
         :param obj: объект, который будет исключен из
                     списка отслеживаемых объектов
         '''
-        pass
+        if obj in self.pool:
+            self.pool.remove(obj)
 
     def get_pool(self):
         '''
         Функция, возращающая список отслеживаемых объектов
         '''
-        pass
+        return self.pool
 
     def run(self):
         '''
         Функция, забирающая события из очереди событий pygame,
         обрабатывающая их, пересылающая часть событий в
-        объекты из списка отслеживаемых объектов и вызывающая
-        функцию дефолтного поведения у объектов из списка
-        отслеживаемых объектов
+        объекты из списка отслеживаемых объектов, вызывающая
+        дефолтное поведение объектов из списка отслеживаемых
+        объектов и возращающая флаг продолжения работы
         '''
-        pass
+        running = True
+        for event in pg.event.get():
+
+            if event.type == pg.QUIT:
+                running = False
+
+            elif event.type == EventManager.REMOVEOBJ:
+                self.remove_obj(event.target)
+
+            else:
+                for obj in self.pool:
+                    obj.call(event)
+
+        for obj in self.pool:
+            obj.idle()
+
+        return running
+               
+
 
 
 pg.init()
 
 screen = Screen(WIN_SIZE)
-running = True
+manager = EventManager()
 clock = pg.time.Clock()
-while running:
+
+while manager.run():
     screen.update()
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            running = False
     clock.tick(FPS)
 
 pg.quit()
