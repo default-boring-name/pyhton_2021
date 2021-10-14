@@ -45,6 +45,7 @@ class OnScreenObj:
                              pos["y"] - ref_pos["y"]),
                              (size["w"], size["h"]))
         self.manager = None
+        self.screen = None
 
     def idle(self):
         '''
@@ -61,6 +62,16 @@ class OnScreenObj:
         '''
 
         return None
+    
+    def set_screen(self, screen):
+        '''
+        Функция, устанавливающая связь с экраном для
+        отрисовки
+        :param screen: объект Screen, с которым
+                              нужно установить связь
+        '''
+
+        self.screen = screen
 
     def set_manager(self, event_manager):
         '''
@@ -86,7 +97,7 @@ class OnScreenObj:
                              (size["w"], size["h"]))
 
 
-    def draw(self, surface):
+    def draw(self):
         '''
         Функция рисующая объект на переданной поверхности
         :param surface: объект pygame.Surface, поверхность
@@ -95,7 +106,7 @@ class OnScreenObj:
                               в которой можно рисовать объект
         '''
 
-        surface.blit(self.sprite, self.rect)
+        self.screen.get_surface().blit(self.sprite, self.rect)
 
     def collide_point(self, pos):
         '''
@@ -254,7 +265,7 @@ class Screen:
 
         self.surf.fill(self.bg_color)
         for obj in self.to_draw_list:
-            obj.draw(self.surf)
+            obj.draw()
     
     def add_obj(self, obj):
         '''
@@ -262,12 +273,13 @@ class Screen:
         для отрисовки, если его там еще не было
         :param obj: обЪект, который нужно добавить в
                     список для отрисовки (обязательно должен
-                    иметь метод draw(), принимающий холст
-                    для отрисовки и его размер)
+                    иметь метод draw() для отрисовки и метод
+                    set_screen примающий объект Screen)
         '''
 
         if obj not in self.to_draw_list:
             self.to_draw_list.append(obj)
+            obj.set_screen(self)
 
     def remove_obj(self, obj):
         '''
@@ -279,6 +291,13 @@ class Screen:
 
         if obj in self.to_draw_list:
             self.to_draw_list.remove(obj)
+
+    def get_surface(self):
+        '''
+        Функция, возвращающая основную поверхность для рисования
+        '''
+
+        return self.surf
 
 
 class MainScreen(Screen):
