@@ -1,5 +1,6 @@
 import pygame as pg
 import random
+import enum
 
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
@@ -39,9 +40,9 @@ class OnScreenObj:
         self.pos = dict(pos)
         self.size = dict(size)
         self.ref_pos = ref_pos
-        self.sprite = pg.Surface((self.size["w"], self.size["h"]), 
+        self.sprite = pg.Surface((self.size["w"], self.size["h"]),
                                   pg.SRCALPHA)
-        self.rect = pg.Rect((pos["x"] - ref_pos["x"], 
+        self.rect = pg.Rect((pos["x"] - ref_pos["x"],
                              pos["y"] - ref_pos["y"]),
                              (size["w"], size["h"]))
         self.manager = None
@@ -62,7 +63,7 @@ class OnScreenObj:
         '''
 
         return None
-    
+
     def set_screen(self, screen):
         '''
         Функция, устанавливающая связь с экраном для
@@ -92,7 +93,7 @@ class OnScreenObj:
         '''
 
         self.pos = dict(pos)
-        self.rect = pg.Rect((pos["x"] - ref_pos["x"], 
+        self.rect = pg.Rect((pos["x"] - ref_pos["x"],
                              pos["y"] - ref_pos["y"]),
                              (size["w"], size["h"]))
 
@@ -118,7 +119,7 @@ class OnScreenObj:
 
     def collide_obj(self, another):
         '''
-        Функция проверяющая сталкиваются ли два объекта 
+        Функция проверяющая сталкиваются ли два объекта
         (если объекты на разных экранах, функция вернет False)
         :param another: объект OnScreeObj, для которого нужно
                         проверить факт столкновения
@@ -184,13 +185,10 @@ class EventManager:
         Функция, которая добавляет переданный объект в
         список отслеживаемых объектов, если его там уже не было
         :param obj: обЪект, который нужно добавить в
-                    список(объект должен иметь метод 
+                    список(объект должен иметь метод
                     idle(), описывающий дефолтное поведение
-                    объекта, метод call(), принимающий 
-                    объект события и возвращающий результат
-                    его обработки (в случае, если событие
-                    не было обработано необходимо вернуть
-                    None), и метод set_manger() принимающий
+                    объекта, метод call(), принимающий
+                    объект события, и метод set_manger() принимающий
                     объект типа EventManager
 
         '''
@@ -242,7 +240,7 @@ class EventManager:
             obj.idle()
 
         return running
-               
+
 
 class Screen:
     '''
@@ -274,10 +272,10 @@ class Screen:
         self.surf.fill(self.bg_color)
         for obj in self.to_draw_list:
             obj.draw()
-    
+
     def add_obj(self, obj):
         '''
-        Функция, добавляющая переданный объект в список 
+        Функция, добавляющая переданный объект в список
         для отрисовки, если его там еще не было
         :param obj: обЪект, который нужно добавить в
                     список для отрисовки (обязательно должен
@@ -324,7 +322,7 @@ class MainScreen(Screen):
         Screen.__init__(self, size, bg_color)
         self.surf = pg.display.set_mode((self.size["w"],
                                          self.size["h"]))
-        
+
     def update(self):
         '''
         Функция, которая перерисовывате экран
@@ -333,9 +331,9 @@ class MainScreen(Screen):
         '''
 
         Screen.update(self)
-        
+
         pg.display.update()
-  
+
 
 class SubScreen(Screen):
     '''
@@ -376,10 +374,10 @@ class SubScreen(Screen):
 
     def draw(self):
         '''
-        Функция рисующая подэкран на предустановленном экране 
+        Функция рисующая подэкран на предустановленном экране
         '''
         Screen.update(self)
-        self.screen.get_surface().blit(self.surf, 
+        self.screen.get_surface().blit(self.surf,
                                        (self.pos["x"], self.pos["y"]))
 
 
@@ -389,12 +387,69 @@ class ShootingRange(SubScreen):
     '''
 
     #События стрельбища
+
     ADDTARGET = pg.event.custom_type()
     '''
     Событие данного типа должно иметь
-    атрибут target_type, указывающий на тип мишени,
+    атрибут target_type из TARGET_TYPES, указывающий на тип мишени,
     которую нужно создать
     '''
+
+    REMOVETARGET = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    атрибут target, указывающий на мишень,
+    которую нужно уничтожить
+    '''
+
+
+    class Target(OnScreenObj):
+        '''
+        Класс мишени для стрельбища
+        '''
+
+        class SHAPES(enum.Enum):
+            CIRCLE = enum.auto()
+            SQUARE = enum.auto()
+            TRIANGLE_UP = enum.auto()
+            TRIANGLE_DOWN = enum.auto()
+            TRIANGLE_LEFT = enum.auto()
+            TRIANGLE_RIGHT = enum.auto()
+
+
+        def __init__(self, pos, velocity, shape, color, size):
+            '''
+            Функция инициализирующая мишень
+            :param pos: словарь {x, y} с позицией центра мишени
+            :param velocity: словарь {x, y} со скоростью центра мишени
+            :param shape: форма из Target.SHAPES, форма мишени
+            :param color: цвет из COLORS, цвет мишени
+            :param size: характерный размер мишени
+            '''
+            pass
+
+        def idle(self):
+            '''
+            Функция, описывающая дефолтное движение мишени
+            '''
+            pass
+
+        def call(self, event):
+            '''
+            Функция, описывающая реакцию мишени на полученное событие
+            :param event: полученное событие, на которое мишень
+                          должна прореагировать
+            '''
+            pass
+
+
+    TARGET_TYPES = {
+                    "m_r_o": {
+                              "shape": Target.SHAPES.CIRCLE,
+                              "color": COLORS["RED"],
+                              "size": 20
+                             }
+                   }
 
     def __init__(self, pos, size, pool_size):
         '''
@@ -406,22 +461,22 @@ class ShootingRange(SubScreen):
                           на стрельбище
         '''
         pass
-        
+
     def idle(self):
         '''
         Фунция описывающая дефолтное поведение стрельбища
         (подсчет существующих мишеней)
         '''
         pass
-    
+
     def call(self, event):
         '''
         Функция, принимающая события от обработчика событий
         :param event: объект события, которое необходимо
                       обработать
         '''
-        pass          
-   
+        pass
+
     def set_manager(self, event_manager):
         '''
         Функция, устанавливающая связь с обработчиком
@@ -438,7 +493,7 @@ class ShootingRange(SubScreen):
         '''
         pass
 
-  
+
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
