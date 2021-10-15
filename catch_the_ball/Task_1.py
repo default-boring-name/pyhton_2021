@@ -305,6 +305,19 @@ class Screen:
 
         return self.surf
 
+    def get_absolute_pos(self):
+        '''
+        Функция, возвращающая абсолютное положение объекта
+        '''
+        screen_pos = {"x": 0, "y": 0}
+        if self.screen is not None:
+            screen_pos = screen.get_absolute_pos()
+        pos = {
+               "x": self.pos["x"] + screen_pos["x"],
+               "y": self.pos["y"] + screen_pos["y"]
+              }
+        return pos
+
 
 class MainScreen(Screen):
     '''
@@ -333,6 +346,13 @@ class MainScreen(Screen):
         Screen.update(self)
 
         pg.display.update()
+
+    def get_absolute_pos(self):
+        '''
+        Функция, возвращающая абсолютное положение экрана
+        '''
+
+        return {"x": 0, "y": 0}
 
 
 class SubScreen(Screen):
@@ -380,6 +400,19 @@ class SubScreen(Screen):
         self.screen.get_surface().blit(self.surf,
                                        (self.pos["x"], self.pos["y"]))
 
+    def get_absolute_pos(self):
+        '''
+        Функция, возвращающая абсолютное положение подэкрана
+        '''
+        screen_pos = {"x": 0, "y": 0}
+        if self.screen is not None:
+            screen_pos = screen.get_absolute_pos()
+        pos = {
+               "x": self.pos["x"] + screen_pos["x"],
+               "y": self.pos["y"] + screen_pos["y"]
+              }
+        return pos
+
 
 class ShootingRange(SubScreen):
     '''
@@ -408,6 +441,8 @@ class ShootingRange(SubScreen):
         Класс мишени для стрельбища
         '''
 
+        
+
         class SHAPES(enum.Enum):
             CIRCLE = enum.auto()
             SQUARE = enum.auto()
@@ -426,13 +461,29 @@ class ShootingRange(SubScreen):
             :param color: цвет из COLORS, цвет мишени
             :param size: характерный размер мишени
             '''
-            pass
+            self.velocity = dict(velocity)
+            self.shape = shape
+            self.color = color
+            
+            size = {"w": linear_size, "h": linear_size}
+            ref_pos = {"x": linear_size // 2, "y": linear_size // 2}
+
+            OnScreenObj.__init__(self, pos, size, ref_pos)
+
+            if self.shape == ShootingRange.Target.SHAPES.CIRCLE:
+                pg.draw.ellipse(self.sprite, self.color, 
+                                self.sprite.get_rect()) 
+
 
         def idle(self):
             '''
             Функция, описывающая дефолтное движение мишени
             '''
-            pass
+            new_pos = {
+                       "x": self.pos["x"] + self.velocity["x"],
+                       "y": self.pos["y"] + self.velocity["y"]
+                      }
+            self.move(new_pos)
 
         def call(self, event):
             '''
@@ -440,8 +491,49 @@ class ShootingRange(SubScreen):
             :param event: полученное событие, на которое мишень
                           должна прореагировать
             '''
-            pass
+            if event.type == pg.MOUSEBUTTONDOWN:
+               screen_abs_pos = self.screen.get_absolute_pos()
+               rel_event_pos = {
+                                "x": event.pos[0] - screen_abs_pos["x"],
+                                "y": event.pos[1] - screen_abs_pos["y"]
+                               }
+               if self.foresee_collide_point(rel_event_pos):
+                   new_event = pg.event.Event(ShooitngRange.REMOVETARGET,
+                                              {"target": self})
+                   pg.event.post(new_event)
+                
 
+        def foresee_collide_point(self, pos):
+            '''
+            Функция, проверяющая пересекается ли объект с данной
+            точкой пространства с учетом движения
+            :param pos: словарь {x, y} с координатами точки, для
+                        которой нужно проверить пересечение
+                        с объектом
+            '''
+            advanced_pos = {"x": pos["x"] - 2 * self.velocity["x"],
+                            "y": pos["y"] - 2 * self.velocity["y"]}
+            return OnScreenObj.collide_point(self, advanced_pos)
+
+        def foresee_collide_x(self, x):
+            '''
+            Функция, проверярющая пресекается ли объект с вертикальной
+            прямой с абсциссой равной х с учетом движения
+            :param x: абсцисса прямой, с которой надо проверить
+                      пересечение
+            '''
+            advanced_x = x - 2 * self.velocity["x"]
+            return OnScreenObj.collide_x(self, advanced_x)
+
+        def foresee_collide_y(self, y):
+            '''
+            Функция, проверярющая пресекается ли объект с горизонтальной
+            прямой с ординатой равной y с учетом движения
+            :param y: ордината прямой, с которой надо проверить
+                      пересечение
+            '''
+            advanced_y = y - 2 * self.velocity["y"]
+            return OnScreenObj.collide_y(self, advanced_y)
 
     TARGET_TYPES = {
                     "m_r_o": {
