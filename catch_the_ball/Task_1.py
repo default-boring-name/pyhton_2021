@@ -4,7 +4,7 @@ import random
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
 COLORS = {
-          "TRANSPARENT": (255, 255, 255, 255),
+          "TRANSPARENT": (255, 255, 255, 0),
           "BLACK": (0, 0, 0),
           "WHITE": (255, 255, 255),
           "RED": (255, 0, 0),
@@ -99,9 +99,7 @@ class OnScreenObj:
 
     def draw(self):
         '''
-        Функция рисующая объект на переданной поверхности
-        :param surface: объект pygame.Surface, поверхность,
-                        на которой нужно нарисовать объект
+        Функция рисующая объект на предустановленном экране
         '''
 
         self.screen.get_surface().blit(self.sprite, self.rect)
@@ -132,7 +130,7 @@ class OnScreenObj:
 
     def collide_x(self, x):
         '''
-        Функция, проверящая пресекается ли объект с вертикальной
+        Функция, проверярющая пресекается ли объект с вертикальной
         прямой с абсциссой равной х
         :param x: абсцисса прямой, с которой надо проверить
                   пересечение
@@ -143,7 +141,7 @@ class OnScreenObj:
 
     def collide_y(self, y):
         '''
-        Функция, проверящая пресекается ли объект с горизонтальной
+        Функция, проверярющая пресекается ли объект с горизонтальной
         прямой с ординатой равной y
         :param y: ордината прямой, с которой надо проверить
                   пересечение
@@ -344,7 +342,9 @@ class SubScreen(Screen):
         :param bg_color: цвет из COLORS, цвет заднего фона подэкрана
                          (заливка), по умолчания он прозрачный
         '''
-        pass
+        self.pos = dict(pos)
+        Screen.__init__(self, size, bg_color)
+        self.screen = None
 
     def move(self, pos):
         '''
@@ -353,7 +353,7 @@ class SubScreen(Screen):
                     которую необходимо переместить левый верхний
                     угл подэкрана
         '''
-        pass
+        self.pos = dict(pos)
 
     def set_screen(self, screen):
         '''
@@ -362,15 +362,15 @@ class SubScreen(Screen):
         :param screen: объект Screen, с которым
                               нужно установить связь
         '''
-        pass
+        self.screen = screen
 
     def draw(self):
         '''
-        Функция рисующая подэкран на переданной поверхности
-        :param surface: объект pygame.Surface, поверхность
-                        на которой нужно нарисовать объект
+        Функция рисующая подэкран на предустановленном экране 
         '''
-        pass
+        Screen.update(self)
+        self.screen.get_surface().blit(self.surf, 
+                                       (self.pos["x"], self.pos["y"]))
 
 
 pg.init()
@@ -378,6 +378,7 @@ pg.init()
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
+
 while manager.run():
     screen.update()
     clock.tick(FPS)
