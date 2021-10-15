@@ -166,6 +166,13 @@ class EventManager:
     который нужно удалить
     '''
 
+    ADDOBJ = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    атрибут target, указывающий на объект,
+    который нужно добавить
+    '''
+
     def __init__(self):
         '''
         Функция для инициализация объекта менеджера событий
@@ -223,6 +230,9 @@ class EventManager:
 
             elif event.type == EventManager.REMOVEOBJ:
                 self.remove_obj(event.target)
+
+            elif event.type == EventManager.ADDOBJ:
+                self.add_obj(event.target)
 
             else:
                 for obj in self.pool:
@@ -373,8 +383,62 @@ class SubScreen(Screen):
                                        (self.pos["x"], self.pos["y"]))
 
 
-pg.init()
+class ShootingRange(SubScreen):
+    '''
+    Класс стрельбища (загон с движущимися мишенями)
+    '''
 
+    #События стрельбища
+    ADDTARGET = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    атрибут target_type, указывающий на тип мишени,
+    которую нужно создать
+    '''
+
+    def __init__(self, pos, size, pool_size):
+        '''
+        Функция инициализирующая стрельбище
+        :param pos: словарь {x, y} с позицией левого верхнего
+                    угла стрельбища
+        :param size: словарь вида {"w", "h"}, размеры стрельбища
+        :param pool_size: количество мишеней, одновременно находящихся
+                          на стрельбище
+        '''
+        pass
+        
+    def idle(self):
+        '''
+        Фунция описывающая дефолтное поведение стрельбища
+        (подсчет существующих мишеней)
+        '''
+        pass
+    
+    def call(self, event):
+        '''
+        Функция, принимающая события от обработчика событий
+        :param event: объект события, которое необходимо
+                      обработать
+        '''
+        pass          
+   
+    def set_manager(self, event_manager):
+        '''
+        Функция, устанавливающая связь с обработчиком
+        событий
+        :param event_manager: объект EventManager, с которым
+                              нужно установить связь
+        '''
+        pass
+
+    def generate_target(self, target_type):
+        '''
+        Функция, создающая мишени разных типов
+        :param target_type: тип мишени, которую нужно создать
+        '''
+        pass
+
+  
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
