@@ -100,10 +100,8 @@ class OnScreenObj:
     def draw(self):
         '''
         Функция рисующая объект на переданной поверхности
-        :param surface: объект pygame.Surface, поверхность
+        :param surface: объект pygame.Surface, поверхность,
                         на которой нужно нарисовать объект
-        :param allowed_space: объект pygame.Rect, область 
-                              в которой можно рисовать объект
         '''
 
         self.screen.get_surface().blit(self.sprite, self.rect)
@@ -122,12 +120,14 @@ class OnScreenObj:
 
     def collide_obj(self, another):
         '''
-        Функция проверяющая сталкиваются ли два объекта
+        Функция проверяющая сталкиваются ли два объекта 
+        (если объекты на разных экранах, функция вернет False)
         :param another: объект OnScreeObj, для которого нужно
                         проверить факт столкновения
         '''
 
-        result = self.rect.colliderect(another.rect)
+        result = (self.rect.colliderect(another.rect)
+                  and self.screen is another.screen)
         return result
 
     def collide_x(self, x):
@@ -301,6 +301,9 @@ class Screen:
 
 
 class MainScreen(Screen):
+    '''
+    Класс главного экрана приложения
+    '''
 
     def __init__(self, size, bg_color=COLORS["WHITE"]):
         '''
@@ -326,12 +329,55 @@ class MainScreen(Screen):
         pg.display.update()
   
 
+class SubScreen(Screen):
+    '''
+    Класс подэкрана для отображения на главном экране сразу
+    нескольких сцен
+    '''
+
+    def __init__(self, pos, size, bg_color=COLORS["TRANSPARENT"]):
+        '''
+        Функция для инициализации подэкрана приложения
+        :param pos: словарь {x, y} с позицией левого верхнего
+                    угла подэкрана
+        :param size: словарь вида {"w", "h"}, размеры подэкрана
+        :param bg_color: цвет из COLORS, цвет заднего фона подэкрана
+                         (заливка), по умолчания он прозрачный
+        '''
+        pass
+
+    def move(self, pos):
+        '''
+        Функция предвигающая подэкран в указанные координаты
+        :param pos: словарь {x, y} с координатами точки, в
+                    которую необходимо переместить левый верхний
+                    угл подэкрана
+        '''
+        pass
+
+    def set_screen(self, screen):
+        '''
+        Функция, устанавливающая связь с экраном для
+        отрисовки
+        :param screen: объект Screen, с которым
+                              нужно установить связь
+        '''
+        pass
+
+    def draw(self):
+        '''
+        Функция рисующая подэкран на переданной поверхности
+        :param surface: объект pygame.Surface, поверхность
+                        на которой нужно нарисовать объект
+        '''
+        pass
+
+
 pg.init()
 
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
-
 while manager.run():
     screen.update()
     clock.tick(FPS)
