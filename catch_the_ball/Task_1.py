@@ -80,8 +80,7 @@ class OnScreenObj:
         :param event: объект события, которое необходимо
                       обработать
         '''
-
-        return None
+        pass
 
     def set_screen(self, screen):
         '''
@@ -170,6 +169,46 @@ class OnScreenObj:
         return result
 
 
+class Text(OnScreenObj):
+
+    '''
+    Класс для отображения текста на экране
+    '''
+
+    class JUSTIFICATION(enum.Enum):
+        LEFT = enum.auto()
+        RIGHT = enum.auto()
+        CENTRE = enum.auto()
+
+
+    def __init__(self, pos, size, font,
+                 justification=JUSTIFICATION.LEFT ,
+                 color=COLORS["BLACK"], bg_color=["TRANSPARENT"]):
+        '''
+        Функция инициализирующая объект текста
+        :param pos: словарь {x, y}, с позицией текста
+                    (позиция центра левой грани, если текста выравнен
+                     по левой стороне;
+                     позиция центра правой грани, если текста выравнен
+                     по правой стороне;
+                     позиция центра текста, если текст центрирован)
+        :param size: размер текста (шрифта)
+        :param justification: выравнивание из Text.JUSTIFICATION,
+                              выравнивание текста
+        :param font: шрифт текста
+        :param color: цвет из COLORS, цвет текста
+        :param bg_color: цвет из COLORS, цвет заднего фона текста
+        '''
+        pass
+
+    def write(self, text):
+        '''
+        Функция, отображающая преданный текст на экране
+        :param text: текст, который необходимо отобразить
+        '''
+        pass
+
+
 class EventManager:
 
     '''
@@ -239,6 +278,7 @@ class EventManager:
         дефолтное поведение объектов из списка отслеживаемых
         объектов и возращающая флаг продолжения работы
         '''
+
         running = True
         for event in pg.event.get():
 
@@ -262,7 +302,7 @@ class EventManager:
 
 
 class Screen:
-    
+
     '''
     Класс экрана, на котором будет отрисовываться
     некоторая сцена
@@ -329,6 +369,7 @@ class Screen:
         '''
         Функция, возвращающая абсолютное положение объекта
         '''
+
         screen_pos = {"x": 0, "y": 0}
         if self.screen is not None:
             screen_pos = screen.get_absolute_pos()
@@ -336,6 +377,7 @@ class Screen:
                "x": self.pos["x"] + screen_pos["x"],
                "y": self.pos["y"] + screen_pos["y"]
               }
+
         return pos
 
 
@@ -468,7 +510,7 @@ class ShootingRange(SubScreen):
         #События мишени
         WALLCOLLISION = pg.event.custom_type()
         '''
-        События данного типа должны иметь 
+        События данного типа должны иметь
         атрибут target, указывающий на мишень столкнувшуюся
         со стеной, и атрибут направления direction, являющийся
         флагом DIRECTION
@@ -483,6 +525,7 @@ class ShootingRange(SubScreen):
             :param color: цвет из COLORS, цвет мишени
             :param size: характерный размер мишени
             '''
+
             self.velocity = dict(velocity)
             self.shape = shape
             self.color = color
@@ -527,12 +570,12 @@ class ShootingRange(SubScreen):
 
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
-                    if (event.direction 
+                    if (event.direction
                         & (DIRECTION.LEFT | DIRECTION.RIGHT)):
 
                         self.velocity["x"] *= -1
 
-                    if (event.direction 
+                    if (event.direction
                         & (DIRECTION.UP | DIRECTION.DOWN)):
 
                         self.velocity["y"] *= -1
@@ -617,7 +660,7 @@ class ShootingRange(SubScreen):
 
             if target.foresee_collide_x(self.size["w"]):
                 collision_flag |= DIRECTION.RIGHT
-            
+
             if target.foresee_collide_y(0):
                 collision_flag |= DIRECTION.UP
 
@@ -683,11 +726,11 @@ class ShootingRange(SubScreen):
                          }
 
         rect_velocity = {
-                         "x": ((polar_velocity["r"] 
+                         "x": ((polar_velocity["r"]
                                 * math.cos(polar_velocity["phi"])) // 1),
 
-                         "y": ((polar_velocity["r"] 
-                                * math.cos(polar_velocity["phi"])) // 1)
+                         "y": ((polar_velocity["r"]
+                                * math.sin(polar_velocity["phi"])) // 1)
                         }
 
         new_target = ShootingRange.Target(pos, rect_velocity,
