@@ -265,7 +265,11 @@ class ScoreLine(Text):
         :param digit_number: кол-во делений счетчика очков
         '''
 
-        pass
+        self.digit_number = digit_number
+        self.score = 0
+        Text.__init__(self, pos, size,
+                      justification=Text.JUSTIFICATION.CENTRE)
+        self.write(self.score_to_text())
 
     def call(self, event):
         '''
@@ -274,7 +278,20 @@ class ScoreLine(Text):
                       должен прореагировать
         '''
 
-        pass
+        if event.type == ScoreLine.INCREASE:
+            self.score += event.increment
+            if self.score > 10 ** self.digit_number:
+                self.score -= 10 ** self.digit_number
+            self.write(self.score_to_text())
+
+    def score_to_text(self):
+        zero_number = (self.digit_number
+                      - int(math.log(self.score + 1) / math.log(10)))
+
+        score_str = ("Scores: " + "0" * zero_number
+                     + str(self.score))
+
+        return score_str
 
 
 class EventManager:
@@ -636,6 +653,10 @@ class ShootingRange(SubScreen):
                                               {"target": self})
                    pg.event.post(rm_event)
 
+                   incr_event = pg.event.Event(ScoreLine.INCREASE,
+                                               {"increment": 5})
+                   pg.event.post(incr_event)
+
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
                     if (event.direction
@@ -817,6 +838,10 @@ pool = ShootingRange({"x": 25, "y": 75},
                      {"w": 350, "h": 300}, 10)
 screen.add_obj(pool)
 manager.add_obj(pool)
+
+score = ScoreLine({"x": 200, "y": 25}, 32)
+screen.add_obj(score)
+manager.add_obj(score)
 
 while manager.run():
     screen.update()
