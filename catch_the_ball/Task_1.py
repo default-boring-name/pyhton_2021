@@ -18,6 +18,8 @@ COLORS = {
           "MAGENTA": (255, 0, 255)
          }
 
+pg.init()
+
 
 class DIRECTION(enum.Flag):
     NONE = enum.auto()
@@ -111,8 +113,8 @@ class OnScreenObj:
         '''
 
         self.pos = dict(pos)
-        self.rect = pg.Rect((pos["x"] - self.ref_pos["x"],
-                             pos["y"] - self.ref_pos["y"]),
+        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
+                             self.pos["y"] - self.ref_pos["y"]),
                              (self.size["w"], self.size["h"]))
 
     def draw(self):
@@ -181,9 +183,9 @@ class Text(OnScreenObj):
         CENTRE = enum.auto()
 
 
-    def __init__(self, pos, size, font,
-                 justification=JUSTIFICATION.LEFT ,
-                 color=COLORS["BLACK"], bg_color=["TRANSPARENT"]):
+    def __init__(self, pos, size, font="Times New Roman",
+                 justification=JUSTIFICATION.LEFT,
+                 color=COLORS["BLACK"], bg_color=COLORS["TRANSPARENT"]):
         '''
         Функция инициализирующая объект текста
         :param pos: словарь {x, y}, с позицией текста
@@ -194,19 +196,49 @@ class Text(OnScreenObj):
                      позиция центра текста, если текст центрирован)
         :param size: размер текста (шрифта)
         :param justification: выравнивание из Text.JUSTIFICATION,
-                              выравнивание текста
-        :param font: шрифт текста
-        :param color: цвет из COLORS, цвет текста
+                              выравнивание текста, по умолчанию
+                              текст выравнен слева
+        :param font: шрифт текста, по умолчанию шрифт "Times New Roman"
+        :param color: цвет из COLORS, цвет текста, по умолчанию
+                      цвет текста черный
         :param bg_color: цвет из COLORS, цвет заднего фона текста
+                         по умолчанию цвет заднего фона прозрачный
         '''
-        pass
+        self.font_size = size
+        self.justification = justification
+        self.font_color = color
+        self.bg_color = bg_color
+        self.font_name = font
+
+        self.text = ""
+        self.font_obj = pg.font.SysFont(self.font_name, self.font_size)
+
+        ref_pos = {"x": 0, "y": self.font_size // 2}
+        OnScreenObj.__init__(self, pos,
+                             {"w": 0, "h": self.font_size},
+                             ref_pos)
 
     def write(self, text):
         '''
         Функция, отображающая преданный текст на экране
         :param text: текст, который необходимо отобразить
         '''
-        pass
+
+        self.text = text
+        self.sprite = self.font_obj.render(self.text, True,
+                                         self.font_color, self.bg_color)
+
+        self.size["w"] = self.sprite.get_rect().width
+
+        if self.justification == Text.JUSTIFICATION.RIGHT:
+            self.ref_pos["x"] = self.size["w"]
+
+        elif self.justification == Text.JUSTIFICATION.CENTRE:
+            self.ref_pos["x"] = self.size["w"] // 2
+
+        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
+                             self.pos["y"] - self.ref_pos["y"]),
+                             (self.size["w"], self.size["h"]))
 
 
 class EventManager:
