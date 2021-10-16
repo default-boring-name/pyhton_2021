@@ -1,6 +1,7 @@
 import pygame as pg
 import random
 import enum
+import math
 
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
@@ -8,6 +9,7 @@ COLORS = {
           "TRANSPARENT": (255, 255, 255, 0),
           "BLACK": (0, 0, 0),
           "WHITE": (255, 255, 255),
+          "GREY": (200, 200, 200),
           "RED": (255, 0, 0),
           "GREEN": (0, 255, 0),
           "BLUE": (0, 0, 255),
@@ -15,6 +17,23 @@ COLORS = {
           "CYAN": (0, 255, 255),
           "MAGENTA": (255, 0, 255)
          }
+
+
+class DIRECTION(enum.Flag):
+    NONE = enum.auto()
+    UP = enum.auto()
+    DOWN = enum.auto()
+    LEFT = enum.auto()
+    RIGHT = enum.auto()
+
+
+class SHAPES(enum.Enum):
+    CIRCLE = enum.auto()
+    SQUARE = enum.auto()
+    TRIANGLE_UP = enum.auto()
+    TRIANGLE_DOWN = enum.auto()
+    TRIANGLE_LEFT = enum.auto()
+    TRIANGLE_RIGHT = enum.auto()
 
 
 class OnScreenObj:
@@ -97,7 +116,6 @@ class OnScreenObj:
                              pos["y"] - self.ref_pos["y"]),
                              (self.size["w"], self.size["h"]))
 
-
     def draw(self):
         '''
         Функция рисующая объект на предустановленном экране
@@ -153,6 +171,7 @@ class OnScreenObj:
 
 
 class EventManager:
+
     '''
     Класс менеджра событий, который обрабатывает как
     pygame события, так и пользовательские события
@@ -243,6 +262,7 @@ class EventManager:
 
 
 class Screen:
+    
     '''
     Класс экрана, на котором будет отрисовываться
     некоторая сцена
@@ -320,6 +340,7 @@ class Screen:
 
 
 class MainScreen(Screen):
+
     '''
     Класс главного экрана приложения
     '''
@@ -356,6 +377,7 @@ class MainScreen(Screen):
 
 
 class SubScreen(Screen):
+
     '''
     Класс подэкрана для отображения на главном экране сразу
     нескольких сцен
@@ -415,6 +437,7 @@ class SubScreen(Screen):
 
 
 class ShootingRange(SubScreen):
+
     '''
     Класс стрельбища (загон с движущимися мишенями)
     '''
@@ -437,20 +460,19 @@ class ShootingRange(SubScreen):
 
 
     class Target(OnScreenObj):
+
         '''
         Класс мишени для стрельбища
         '''
 
+        #События мишени
         WALLCOLLISION = pg.event.custom_type()
-
-        class SHAPES(enum.Enum):
-            CIRCLE = enum.auto()
-            SQUARE = enum.auto()
-            TRIANGLE_UP = enum.auto()
-            TRIANGLE_DOWN = enum.auto()
-            TRIANGLE_LEFT = enum.auto()
-            TRIANGLE_RIGHT = enum.auto()
-
+        '''
+        События данного типа должны иметь 
+        атрибут target, указывающий на мишень столкнувшуюся
+        со стеной, и атрибут направления direction, являющийся
+        флагом DIRECTION
+        '''
 
         def __init__(self, pos, velocity, shape, color, linear_size):
             '''
@@ -470,7 +492,7 @@ class ShootingRange(SubScreen):
 
             OnScreenObj.__init__(self, pos, size, ref_pos)
 
-            if self.shape == ShootingRange.Target.SHAPES.CIRCLE:
+            if self.shape == SHAPES.CIRCLE:
                 pg.draw.ellipse(self.sprite, self.color,
                                 self.sprite.get_rect())
 
@@ -491,20 +513,28 @@ class ShootingRange(SubScreen):
                           должна прореагировать
             '''
             if event.type == pg.MOUSEBUTTONDOWN:
+
                screen_abs_pos = self.screen.get_absolute_pos()
-               rel_event_pos = {
+               rel_mouse_pos = {
                                 "x": event.pos[0] - screen_abs_pos["x"],
                                 "y": event.pos[1] - screen_abs_pos["y"]
                                }
-               if self.collide_point(rel_event_pos):
-                   new_event = pg.event.Event(ShootingRange.REMOVETARGET,
+
+               if self.collide_point(rel_mouse_pos):
+                   rm_event = pg.event.Event(ShootingRange.REMOVETARGET,
                                               {"target": self})
-                   pg.event.post(new_event)
+                   pg.event.post(rm_event)
+
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
-                    if event.direction["x"]:
+                    if (event.direction 
+                        & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+
                         self.velocity["x"] *= -1
-                    if event.direction["y"]:
+
+                    if (event.direction 
+                        & (DIRECTION.UP | DIRECTION.DOWN)):
+
                         self.velocity["y"] *= -1
 
         def foresee_collide_point(self, pos):
@@ -515,8 +545,10 @@ class ShootingRange(SubScreen):
                         которой нужно проверить пересечение
                         с объектом
             '''
+
             advanced_pos = {"x": pos["x"] - 2 * self.velocity["x"],
                             "y": pos["y"] - 2 * self.velocity["y"]}
+
             return OnScreenObj.collide_point(self, advanced_pos)
 
         def foresee_collide_x(self, x):
@@ -526,7 +558,9 @@ class ShootingRange(SubScreen):
             :param x: абсцисса прямой, с которой надо проверить
                       пересечение
             '''
+
             advanced_x = x - 2 * self.velocity["x"]
+
             return OnScreenObj.collide_x(self, advanced_x)
 
         def foresee_collide_y(self, y):
@@ -536,14 +570,16 @@ class ShootingRange(SubScreen):
             :param y: ордината прямой, с которой надо проверить
                       пересечение
             '''
+
             advanced_y = y - 2 * self.velocity["y"]
+
             return OnScreenObj.collide_y(self, advanced_y)
 
     TARGET_TYPES = {
                     "m_r_o": {
-                              "shape": Target.SHAPES.CIRCLE,
+                              "shape": SHAPES.CIRCLE,
                               "color": COLORS["RED"],
-                              "size": 20
+                              "size": 20,
                              }
                    }
 
@@ -559,7 +595,7 @@ class ShootingRange(SubScreen):
         self.pool_size = pool_size
         self.pool = []
         self.manager = None
-        SubScreen.__init__(self, pos, size)
+        SubScreen.__init__(self, pos, size, COLORS["GREY"])
 
     def idle(self):
         '''
@@ -567,29 +603,34 @@ class ShootingRange(SubScreen):
         (подсчет существующих мишеней)
         '''
         if len(self.pool) < self.pool_size:
+
             target_type = ShootingRange.TARGET_TYPES["m_r_o"]
-            new_event = pg.event.Event(ShootingRange.ADDTARGET,
+            add_event = pg.event.Event(ShootingRange.ADDTARGET,
                                        {"target_type": target_type})
-            pg.event.post(new_event)
+            pg.event.post(add_event)
 
         for target in self.pool:
-            collision_flag = {"x": False, "y": False}
-            if (target.foresee_collide_x(0)
-                or target.foresee_collide_x(self.size["w"])):
+            collision_flag = DIRECTION.NONE
 
-                collision_flag["x"] = True
+            if target.foresee_collide_x(0):
+                collision_flag |= DIRECTION.LEFT
 
-            if (target.foresee_collide_y(0)
-                or target.foresee_collide_y(self.size["h"])):
+            if target.foresee_collide_x(self.size["w"]):
+                collision_flag |= DIRECTION.RIGHT
+            
+            if target.foresee_collide_y(0):
+                collision_flag |= DIRECTION.UP
 
-                collision_flag["y"] = True
+            if target.foresee_collide_y(self.size["h"]):
+                collision_flag |= DIRECTION.DOWN
 
-            if collision_flag["x"] or collision_flag["y"]:
+            if collision_flag & ~DIRECTION.NONE:
                 event_type = ShootingRange.Target.WALLCOLLISION
-                new_event = pg.event.Event(event_type,
+                collision_event = pg.event.Event(event_type,
                                            {"target": target,
                                             "direction": collision_flag})
-                pg.event.post(new_event)
+
+                pg.event.post(collision_event)
 
     def call(self, event):
         '''
@@ -597,21 +638,22 @@ class ShootingRange(SubScreen):
         :param event: объект события, которое необходимо
                       обработать
         '''
+
         if event.type == ShootingRange.ADDTARGET:
             new_target = self.generate_target(event.target_type)
             self.pool.append(new_target)
 
             self.add_obj(new_target)
-            new_event = pg.event.Event(EventManager.ADDOBJ,
+            add_event = pg.event.Event(EventManager.ADDOBJ,
                                        {"target": new_target})
-            pg.event.post(new_event)
+            pg.event.post(add_event)
 
         elif event.type == ShootingRange.REMOVETARGET:
             self.pool.remove(event.target)
             self.remove_obj(event.target)
-            new_event = pg.event.Event(EventManager.REMOVEOBJ,
+            rm_event = pg.event.Event(EventManager.REMOVEOBJ,
                                        {"target": event.target})
-            pg.event.post(new_event)
+            pg.event.post(rm_event)
 
     def set_manager(self, event_manager):
         '''
@@ -627,6 +669,7 @@ class ShootingRange(SubScreen):
         Функция, создающая мишени разных типов
         :param target_type: тип мишени, которую нужно создать
         '''
+
         pos = {
                "x": random.randint(0 + target_type["size"] // 2,
                                    self.size["w"] - target_type["size"] // 2),
@@ -634,11 +677,20 @@ class ShootingRange(SubScreen):
                                    self.size["h"] - target_type["size"] // 2)
               }
 
-        velocity = {
-               "x": random.randint(-5, 5),
-               "y": random.randint(-5, 5)
-              }
-        new_target = ShootingRange.Target(pos, velocity,
+        polar_velocity = {
+                          "r": random.uniform(2, 7),
+                          "phi": random.uniform(-math.pi, math.pi)
+                         }
+
+        rect_velocity = {
+                         "x": ((polar_velocity["r"] 
+                                * math.cos(polar_velocity["phi"])) // 1),
+
+                         "y": ((polar_velocity["r"] 
+                                * math.cos(polar_velocity["phi"])) // 1)
+                        }
+
+        new_target = ShootingRange.Target(pos, rect_velocity,
                                           target_type["shape"],
                                           target_type["color"],
                                           target_type["size"])
@@ -650,8 +702,8 @@ screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
 
-pool = ShootingRange({"x": 50, "y": 50},
-                     {"w": 300, "h": 300}, 1)
+pool = ShootingRange({"x": 25, "y": 75},
+                     {"w": 350, "h": 300}, 10)
 screen.add_obj(pool)
 manager.add_obj(pool)
 
