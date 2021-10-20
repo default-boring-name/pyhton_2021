@@ -2,6 +2,7 @@ import pygame as pg
 import random
 import enum
 import math
+import yaml
 
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
@@ -247,6 +248,12 @@ class ScoreLine(Text):
     которое нужно добавить
     '''
 
+    SAVE = pg.event.custom_type()
+    '''
+    Событие данного типа не дожно иметь какие-либо
+    атрибуты
+    '''
+
     def __init__(self, pos, size, digit_number=3):
         '''
         Функция, инициализирующая объект счетчика очков
@@ -257,10 +264,10 @@ class ScoreLine(Text):
         '''
 
         self.digit_number = digit_number
-        self.score = 0
+        self.scores = 0
         Text.__init__(self, pos, size,
                       justification=Text.JUSTIFICATION.CENTRE)
-        self.write(self.score_to_text())
+        self.write(self.scores_to_text())
 
     def call(self, event):
         '''
@@ -270,19 +277,44 @@ class ScoreLine(Text):
         '''
 
         if event.type == ScoreLine.INCREASE:
-            self.score += event.increment
-            if self.score > 10 ** self.digit_number:
-                self.score -= 10 ** self.digit_number
-            self.write(self.score_to_text())
+            self.scores += event.increment
+            if self.scores > 10 ** self.digit_number:
+                self.scores -= 10 ** self.digit_number
+            self.write(self.scores_to_text())
 
-    def score_to_text(self):
+        elif event.type == ScoreLine.SAVE:
+            self.save_scores()
+
+    def scores_to_text(self):
+        '''
+        Функция, переводящая очки в строку вида Scores: XXXX,
+        где XXXX - кол-во очков с учетом лидирующих нулей
+        '''
+
         zero_number = (self.digit_number
-                       - int(math.log(self.score + 1) / math.log(10)))
+                       - int(math.log(self.scores + 1) / math.log(10)))
 
         score_str = ("Scores: " + "0" * zero_number
-                     + str(self.score))
+                     + str(self.scores))
 
         return score_str
+
+    def save_scores(self):
+        '''
+        Функция, сохраняющая счет в таблицу рекордов
+        '''
+
+        player = {"name": "root", "scores": self.scores}
+        highscores = None
+        with open("highscore.yml", "r") as score_file:
+            highscores = yaml.safe_load(score_file)
+
+        if highscores == None:
+            highscores = []
+
+        highscores.append(player)
+        with open("highscore.yml", "w") as score_file:
+            yaml.dump(highscores, score_file)
 
 
 class EventManager:
@@ -312,6 +344,7 @@ class EventManager:
         Функция для инициализация объекта менеджера событий
         '''
         self.pool = []
+        self.end = False
 
     def add_obj(self, obj):
         '''
@@ -372,6 +405,15 @@ class EventManager:
 
         for obj in self.pool:
             obj.idle()
+
+        if self.end:
+             return False
+
+        if not running:
+            self.end = True
+            save_score_event = pg.event.Event(ScoreLine.SAVE)
+            pg.event.post(save_score_event)
+            return True
 
         return running
 
