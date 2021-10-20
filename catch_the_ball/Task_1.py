@@ -3,7 +3,10 @@ import random
 import enum
 import math
 import yaml
+import time
+import subprocess as subprcs
 
+pg.init()
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
 
@@ -19,9 +22,6 @@ class COLORS:
           YELLOW = (255, 255, 0),
           CYAN = (0, 255, 255),
           MAGENTA = (255, 0, 255)
-
-
-pg.init()
 
 
 class DIRECTION(enum.Flag):
@@ -291,7 +291,7 @@ class ScoreLine(Text):
         где XXXX - кол-во очков с учетом лидирующих нулей
         '''
 
-        zero_number = (self.digit_number
+        zero_number = (self.digit_number - 1
                        - int(math.log(self.scores + 1) / math.log(10)))
 
         score_str = ("Scores: " + "0" * zero_number
@@ -304,17 +304,37 @@ class ScoreLine(Text):
         Функция, сохраняющая счет в таблицу рекордов
         '''
 
-        player = {"name": "root", "scores": self.scores}
+        user_name_raw = subprcs.run(["whoami"], stdout=subprcs.PIPE)
+        user_name = user_name_raw.stdout.decode("utf-8")[:-1]
+
+        host_name_raw = subprcs.run(["hostname"], stdout=subprcs.PIPE)
+        host_name = host_name_raw.stdout.decode("utf-8")[:-1]
+
+        player_name = "@".join([user_name, host_name])
+        record_time = time.strftime("%H:%M %d.%m.%Y")
+
+        player = {
+                  "name": player_name,
+                  "date": record_time,
+                  "scores": self.scores
+                 }
         highscores = None
+
+        with open("highscore.yml", "a") as score_file:
+            pass
+
         with open("highscore.yml", "r") as score_file:
             highscores = yaml.safe_load(score_file)
 
         if highscores == None:
             highscores = []
-
         highscores.append(player)
+
+        sort_key = lambda x: x["scores"]
+        highscores.sort(key=sort_key)
+
         with open("highscore.yml", "w") as score_file:
-            yaml.dump(highscores, score_file)
+            yaml.dump(highscores, score_file, sort_keys=False)
 
 
 class EventManager:
@@ -952,7 +972,7 @@ pool = ShootingRange({"x": 25, "y": 75},
 screen.add_obj(pool)
 manager.add_obj(pool)
 
-score = ScoreLine({"x": 200, "y": 25}, 32)
+score = ScoreLine({"x": 200, "y": 25}, 32, digit_number=7)
 screen.add_obj(score)
 manager.add_obj(score)
 
