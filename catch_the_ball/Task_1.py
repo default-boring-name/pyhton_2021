@@ -29,17 +29,7 @@ class DIRECTION(enum.Flag):
     RIGHT = enum.auto()
 
 
-class SHAPES(enum.Enum):
-    CIRCLE = enum.auto()
-    SQUARE = enum.auto()
-    TRIANGLE_UP = enum.auto()
-    TRIANGLE_DOWN = enum.auto()
-    TRIANGLE_LEFT = enum.auto()
-    TRIANGLE_RIGHT = enum.auto()
-
-
 class OnScreenObj:
-
     '''
     Класс игровых объектов, которые могут быть
     отрисованы на экране
@@ -62,10 +52,10 @@ class OnScreenObj:
         self.size = dict(size)
         self.ref_pos = ref_pos
         self.sprite = pg.Surface((self.size["w"], self.size["h"]),
-                                  pg.SRCALPHA)
+                                 pg.SRCALPHA)
         self.rect = pg.Rect((pos["x"] - ref_pos["x"],
                              pos["y"] - ref_pos["y"]),
-                             (size["w"], size["h"]))
+                            (size["w"], size["h"]))
         self.manager = None
         self.screen = None
 
@@ -115,7 +105,7 @@ class OnScreenObj:
         self.pos = dict(pos)
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
-                             (self.size["w"], self.size["h"]))
+                            (self.size["w"], self.size["h"]))
 
     def draw(self):
         '''
@@ -133,7 +123,7 @@ class OnScreenObj:
                     с объектом
         '''
 
-        result =  self.rect.collidepoint((pos["x"], pos["y"]))
+        result = self.rect.collidepoint((pos["x"], pos["y"]))
         return result
 
     def collide_obj(self, another):
@@ -172,10 +162,10 @@ class OnScreenObj:
 
 
 class Text(OnScreenObj):
-
     '''
     Класс для отображения текста на экране
     '''
+
 
     class JUSTIFICATION(enum.Enum):
         LEFT = enum.auto()
@@ -226,7 +216,7 @@ class Text(OnScreenObj):
 
         self.text = text
         self.sprite = self.font_obj.render(self.text, True,
-                                         self.font_color, self.bg_color)
+                                           self.font_color, self.bg_color)
 
         self.size["w"] = self.sprite.get_rect().width
 
@@ -238,16 +228,15 @@ class Text(OnScreenObj):
 
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
-                             (self.size["w"], self.size["h"]))
+                            (self.size["w"], self.size["h"]))
 
 
 class ScoreLine(Text):
-
     '''
     Класс счетчика очков
     '''
 
-    #События счетчика очков
+    # События счетчика очков
 
     INCREASE = pg.event.custom_type()
     '''
@@ -286,7 +275,7 @@ class ScoreLine(Text):
 
     def score_to_text(self):
         zero_number = (self.digit_number
-                      - int(math.log(self.score + 1) / math.log(10)))
+                       - int(math.log(self.score + 1) / math.log(10)))
 
         score_str = ("Scores: " + "0" * zero_number
                      + str(self.score))
@@ -295,13 +284,12 @@ class ScoreLine(Text):
 
 
 class EventManager:
-
     '''
     Класс менеджра событий, который обрабатывает как
     pygame события, так и пользовательские события
     '''
 
-    #События менеджера событий
+    # События менеджера событий
 
     REMOVEOBJ = pg.event.custom_type()
     '''
@@ -387,7 +375,6 @@ class EventManager:
 
 
 class Screen:
-
     '''
     Класс экрана, на котором будет отрисовываться
     некоторая сцена
@@ -467,7 +454,6 @@ class Screen:
 
 
 class MainScreen(Screen):
-
     '''
     Класс главного экрана приложения
     '''
@@ -504,7 +490,6 @@ class MainScreen(Screen):
 
 
 class SubScreen(Screen):
-
     '''
     Класс подэкрана для отображения на главном экране сразу
     нескольких сцен
@@ -564,12 +549,11 @@ class SubScreen(Screen):
 
 
 class ShootingRange(SubScreen):
-
     '''
     Класс стрельбища (загон с движущимися мишенями)
     '''
 
-    #События стрельбища
+    # События стрельбища
 
     ADDTARGET = pg.event.custom_type()
     '''
@@ -587,12 +571,11 @@ class ShootingRange(SubScreen):
 
 
     class Target(OnScreenObj):
-
         '''
         Класс мишени для стрельбища
         '''
 
-        #События мишени
+        # События мишени
         WALLCOLLISION = pg.event.custom_type()
         '''
         События данного типа должны иметь
@@ -601,37 +584,38 @@ class ShootingRange(SubScreen):
         флагом DIRECTION
         '''
 
-        def __init__(self, pos, velocity, shape, color, linear_size):
+        def __init__(self, pos, vel, accel, size, score):
             '''
             Функция инициализирующая мишень
             :param pos: словарь {x, y} с позицией центра мишени
-            :param velocity: словарь {x, y} со скоростью центра мишени
-            :param shape: форма из Target.SHAPES, форма мишени
-            :param color: цвет из COLORS, цвет мишени
-            :param size: характерный размер мишени
+            :param vel: словарь {x, y} со скоростью центра мишени
+            :param accel: словарь {x, y} с ускорением центра мишени
+            :param size: словарь {w, h} размер мишени
+            :param score: кол-во очков в награду за попадание по мишени
             '''
 
-            self.velocity = dict(velocity)
-            self.shape = shape
-            self.color = color
+            self.vel = dict(vel)
+            self.accel = dict(accel)
+            self.score = score
 
-            size = {"w": linear_size, "h": linear_size}
-            ref_pos = {"x": linear_size // 2, "y": linear_size // 2}
+            ref_pos = {"x": size["w"] // 2, "y": size["h"] // 2}
 
             OnScreenObj.__init__(self, pos, size, ref_pos)
-
-            if self.shape == SHAPES.CIRCLE:
-                pg.draw.ellipse(self.sprite, self.color,
-                                self.sprite.get_rect())
 
         def idle(self):
             '''
             Функция, описывающая дефолтное движение мишени
             '''
             new_pos = {
-                       "x": self.pos["x"] + self.velocity["x"],
-                       "y": self.pos["y"] + self.velocity["y"]
+                       "x": self.pos["x"] + self.vel["x"],
+                       "y": self.pos["y"] + self.vel["y"]
                       }
+
+            self.vel = {
+                        "x": self.vel["x"] + self.accel["x"],
+                        "y": self.vel["y"] + self.accel["y"]
+                       }
+
             self.move(new_pos)
 
         def call(self, event):
@@ -642,32 +626,32 @@ class ShootingRange(SubScreen):
             '''
             if event.type == pg.MOUSEBUTTONDOWN:
 
-               screen_abs_pos = self.screen.get_absolute_pos()
-               rel_mouse_pos = {
-                                "x": event.pos[0] - screen_abs_pos["x"],
-                                "y": event.pos[1] - screen_abs_pos["y"]
-                               }
+                screen_abs_pos = self.screen.get_absolute_pos()
+                rel_mouse_pos = {
+                                 "x": event.pos[0] - screen_abs_pos["x"],
+                                 "y": event.pos[1] - screen_abs_pos["y"]
+                                }
 
-               if self.collide_point(rel_mouse_pos):
-                   rm_event = pg.event.Event(ShootingRange.REMOVETARGET,
+                if self.collide_point(rel_mouse_pos):
+                    rm_event = pg.event.Event(ShootingRange.REMOVETARGET,
                                               {"target": self})
-                   pg.event.post(rm_event)
+                    pg.event.post(rm_event)
 
-                   incr_event = pg.event.Event(ScoreLine.INCREASE,
-                                               {"increment": 5})
-                   pg.event.post(incr_event)
+                    incr_event = pg.event.Event(ScoreLine.INCREASE,
+                                                {"increment": self.score})
+                    pg.event.post(incr_event)
 
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
                     if (event.direction
-                        & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+                            & (DIRECTION.LEFT | DIRECTION.RIGHT)):
 
-                        self.velocity["x"] *= -1
+                        self.vel["x"] *= -1
 
                     if (event.direction
-                        & (DIRECTION.UP | DIRECTION.DOWN)):
+                            & (DIRECTION.UP | DIRECTION.DOWN)):
 
-                        self.velocity["y"] *= -1
+                        self.vel["y"] *= -1
 
         def foresee_collide_point(self, pos):
             '''
@@ -678,8 +662,8 @@ class ShootingRange(SubScreen):
                         с объектом
             '''
 
-            advanced_pos = {"x": pos["x"] - 2 * self.velocity["x"],
-                            "y": pos["y"] - 2 * self.velocity["y"]}
+            advanced_pos = {"x": pos["x"] - 2 * self.vel["x"],
+                            "y": pos["y"] - 2 * self.vel["y"]}
 
             return OnScreenObj.collide_point(self, advanced_pos)
 
@@ -691,7 +675,7 @@ class ShootingRange(SubScreen):
                       пересечение
             '''
 
-            advanced_x = x - 2 * self.velocity["x"]
+            advanced_x = x - 2 * self.vel["x"]
 
             return OnScreenObj.collide_x(self, advanced_x)
 
@@ -703,17 +687,53 @@ class ShootingRange(SubScreen):
                       пересечение
             '''
 
-            advanced_y = y - 2 * self.velocity["y"]
+            advanced_y = y - 2 * self.vel["y"]
 
             return OnScreenObj.collide_y(self, advanced_y)
 
-    TARGET_TYPES = {
-                    "m_r_o": {
-                              "shape": SHAPES.CIRCLE,
-                              "color": COLORS["RED"],
-                              "size": 20,
-                             }
-                   }
+
+    class RedBall(Target):
+        '''
+        Дочерний класс класса ShootingRange.Target,
+        реализующий мишень в форме красного шарика
+        '''
+        def __init__(self, shr_scale):
+            '''
+            Функция, инициализирующая мишень в форме
+            красного шарика
+            :param shr_scale: словарь {w, h} с размерами
+                              стрельбища
+            '''
+
+            pos = {
+                   "x": random.randint(0 + 5, shr_scale["w"] -5),
+                   "y": random.randint(0 + 5, shr_scale["h"] -5)
+                  }
+
+            vel_polar = {
+                         "r": random.randint(2, 4),
+                         "phi": 2 * math.pi * random.random()
+                        }
+
+            vel = {
+                   "x": vel_polar["r"] * math.cos(vel_polar["phi"]),
+                   "y": vel_polar["r"] * math.sin(vel_polar["phi"])
+                  }
+
+            accel = {"x": 0, "y": 0}
+
+            size = {"w": 20, "h": 20}
+
+            score = 5
+
+            ShootingRange.Target.__init__(self, pos, vel,
+                                          accel, size, score)
+
+            pg.draw.ellipse(self.sprite, COLORS["RED"],
+                            self.sprite.get_rect())
+
+
+    TARGET_TYPES = (RedBall,)
 
     def __init__(self, pos, size, pool_size):
         '''
@@ -736,7 +756,7 @@ class ShootingRange(SubScreen):
         '''
         if len(self.pool) < self.pool_size:
 
-            target_type = ShootingRange.TARGET_TYPES["m_r_o"]
+            target_type = random.choice(ShootingRange.TARGET_TYPES)
             add_event = pg.event.Event(ShootingRange.ADDTARGET,
                                        {"target_type": target_type})
             pg.event.post(add_event)
@@ -759,8 +779,8 @@ class ShootingRange(SubScreen):
             if collision_flag & ~DIRECTION.NONE:
                 event_type = ShootingRange.Target.WALLCOLLISION
                 collision_event = pg.event.Event(event_type,
-                                           {"target": target,
-                                            "direction": collision_flag})
+                                                 {"target": target,
+                                                  "direction": collision_flag})
 
                 pg.event.post(collision_event)
 
@@ -772,7 +792,8 @@ class ShootingRange(SubScreen):
         '''
 
         if event.type == ShootingRange.ADDTARGET:
-            new_target = self.generate_target(event.target_type)
+            new_target = event.target_type.__new__(event.target_type)
+            new_target.__init__(self.size)
             self.pool.append(new_target)
 
             self.add_obj(new_target)
@@ -784,7 +805,7 @@ class ShootingRange(SubScreen):
             self.pool.remove(event.target)
             self.remove_obj(event.target)
             rm_event = pg.event.Event(EventManager.REMOVEOBJ,
-                                       {"target": event.target})
+                                      {"target": event.target})
             pg.event.post(rm_event)
 
     def set_manager(self, event_manager):
@@ -795,39 +816,6 @@ class ShootingRange(SubScreen):
                               нужно установить связь
         '''
         self.manager = event_manager
-
-    def generate_target(self, target_type):
-        '''
-        Функция, создающая мишени разных типов
-        :param target_type: тип мишени, которую нужно создать
-        '''
-
-        pos = {
-               "x": random.randint(0 + target_type["size"] // 2,
-                                   self.size["w"] - target_type["size"] // 2),
-               "y": random.randint(0 + target_type["size"] // 2,
-                                   self.size["h"] - target_type["size"] // 2)
-              }
-
-        polar_velocity = {
-                          "r": random.uniform(2, 7),
-                          "phi": random.uniform(-math.pi, math.pi)
-                         }
-
-        rect_velocity = {
-                         "x": ((polar_velocity["r"]
-                                * math.cos(polar_velocity["phi"])) // 1),
-
-                         "y": ((polar_velocity["r"]
-                                * math.sin(polar_velocity["phi"])) // 1)
-                        }
-
-        new_target = ShootingRange.Target(pos, rect_velocity,
-                                          target_type["shape"],
-                                          target_type["color"],
-                                          target_type["size"])
-        return new_target
-
 
 
 screen = MainScreen(WIN_SIZE)
