@@ -5,18 +5,20 @@ import math
 
 FPS = 30
 WIN_SIZE = {"w": 400, "h": 400}
-COLORS = {
-          "TRANSPARENT": (255, 255, 255, 0),
-          "BLACK": (0, 0, 0),
-          "WHITE": (255, 255, 255),
-          "GREY": (200, 200, 200),
-          "RED": (255, 0, 0),
-          "GREEN": (0, 255, 0),
-          "BLUE": (0, 0, 255),
-          "YELLOW": (255, 255, 0),
-          "CYAN": (0, 255, 255),
-          "MAGENTA": (255, 0, 255)
-         }
+
+
+class COLORS:
+          TRANSPARENT = (255, 255, 255, 0),
+          BLACK = (0, 0, 0),
+          WHITE = (255, 255, 255),
+          GREY = (200, 200, 200),
+          RED = (255, 0, 0),
+          GREEN = (0, 255, 0),
+          BLUE = (0, 0, 255),
+          YELLOW = (255, 255, 0),
+          CYAN = (0, 255, 255),
+          MAGENTA = (255, 0, 255)
+
 
 pg.init()
 
@@ -175,7 +177,7 @@ class Text(OnScreenObj):
 
     def __init__(self, pos, size, font="Times New Roman",
                  justification=JUSTIFICATION.LEFT,
-                 color=COLORS["BLACK"], bg_color=COLORS["TRANSPARENT"]):
+                 color=COLORS.BLACK, bg_color=COLORS.TRANSPARENT):
         '''
         Функция инициализирующая объект текста
         :param pos: словарь {x, y}, с позицией текста
@@ -380,7 +382,7 @@ class Screen:
     некоторая сцена
     '''
 
-    def __init__(self, size, bg_color=COLORS["TRANSPARENT"]):
+    def __init__(self, size, bg_color=COLORS.TRANSPARENT):
         '''
         Функция для инициализации экрана
         :param size: словарь вида {"w", "h"}, размеры экрана
@@ -458,7 +460,7 @@ class MainScreen(Screen):
     Класс главного экрана приложения
     '''
 
-    def __init__(self, size, bg_color=COLORS["WHITE"]):
+    def __init__(self, size, bg_color=COLORS.WHITE):
         '''
         Функция для инициализации главного экрана приложения
         :param size: словарь вида {"w", "h"}, размеры экрана
@@ -495,7 +497,7 @@ class SubScreen(Screen):
     нескольких сцен
     '''
 
-    def __init__(self, pos, size, bg_color=COLORS["TRANSPARENT"]):
+    def __init__(self, pos, size, bg_color=COLORS.TRANSPARENT):
         '''
         Функция для инициализации подэкрана приложения
         :param pos: словарь {x, y} с позицией левого верхнего
@@ -584,7 +586,7 @@ class ShootingRange(SubScreen):
         флагом DIRECTION
         '''
 
-        def __init__(self, pos, vel, accel, size, score):
+        def __init__(self, pos, vel, accel, size, score, shr_scale):
             '''
             Функция инициализирующая мишень
             :param pos: словарь {x, y} с позицией центра мишени
@@ -592,11 +594,14 @@ class ShootingRange(SubScreen):
             :param accel: словарь {x, y} с ускорением центра мишени
             :param size: словарь {w, h} размер мишени
             :param score: кол-во очков в награду за попадание по мишени
+            :param shr_scale: словарь {w, h} размер стрельбища
             '''
 
             self.vel = dict(vel)
+            self.max_vel = dict(vel)
             self.accel = dict(accel)
             self.score = score
+            self.shr_scale = shr_scale
 
             ref_pos = {"x": size["w"] // 2, "y": size["h"] // 2}
 
@@ -607,14 +612,19 @@ class ShootingRange(SubScreen):
             Функция, описывающая дефолтное движение мишени
             '''
             new_pos = {
-                       "x": self.pos["x"] + self.vel["x"],
-                       "y": self.pos["y"] + self.vel["y"]
+                       "x": self.pos["x"] + self.vel["x"] // 1,
+                       "y": self.pos["y"] + self.vel["y"] // 1
                       }
 
             self.vel = {
                         "x": self.vel["x"] + self.accel["x"],
                         "y": self.vel["y"] + self.accel["y"]
                        }
+
+            for v in self.vel:
+                if abs(self.vel[v]) > abs(self.max_vel[v]):
+                    self.vel[v] = math.copysign(self.max_vel[v] * 0.9,
+                                             self.vel[v])
 
             self.move(new_pos)
 
@@ -625,7 +635,6 @@ class ShootingRange(SubScreen):
                           должна прореагировать
             '''
             if event.type == pg.MOUSEBUTTONDOWN:
-
                 screen_abs_pos = self.screen.get_absolute_pos()
                 rel_mouse_pos = {
                                  "x": event.pos[0] - screen_abs_pos["x"],
@@ -643,15 +652,30 @@ class ShootingRange(SubScreen):
 
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
-                    if (event.direction
-                            & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+                    new_pos = dict(self.pos)
+                    if (event.direction & (DIRECTION.LEFT | DIRECTION.RIGHT)):
 
                         self.vel["x"] *= -1
 
-                    if (event.direction
-                            & (DIRECTION.UP | DIRECTION.DOWN)):
+                        if event.direction & DIRECTION.LEFT:
+                            new_pos["x"] += -self.rect.left
+
+                        if event.direction & DIRECTION.RIGHT:
+                            new_pos["x"] += -(self.shr_scale["w"]
+                                              - self.rect.right)
+
+                    if (event.direction & (DIRECTION.UP | DIRECTION.DOWN)):
 
                         self.vel["y"] *= -1
+
+                        if event.direction & DIRECTION.UP:
+                            new_pos["y"] += -self.rect.top
+
+                        if event.direction & DIRECTION.DOWN:
+                            new_pos["y"] += -(self.shr_scale["h"]
+                                              - self.rect.bottom)
+
+                    self.move(new_pos)
 
         def foresee_collide_point(self, pos):
             '''
@@ -705,9 +729,12 @@ class ShootingRange(SubScreen):
                               стрельбища
             '''
 
+            size = {"w": 20, "h": 20}
             pos = {
-                   "x": random.randint(0 + 5, shr_scale["w"] -5),
-                   "y": random.randint(0 + 5, shr_scale["h"] -5)
+                   "x": random.randint(0 + size["w"] // 2,
+                                       shr_scale["w"] - size["w"] // 2),
+                   "y": random.randint(0 + size["h"] // 2,
+                                       shr_scale["h"] - size["w"] // 2)
                   }
 
             vel_polar = {
@@ -716,24 +743,80 @@ class ShootingRange(SubScreen):
                         }
 
             vel = {
-                   "x": vel_polar["r"] * math.cos(vel_polar["phi"]),
-                   "y": vel_polar["r"] * math.sin(vel_polar["phi"])
+                   "x": vel_polar["r"] * math.cos(vel_polar["phi"]) // 1,
+                   "y": vel_polar["r"] * math.sin(vel_polar["phi"]) // 1
                   }
 
             accel = {"x": 0, "y": 0}
-
-            size = {"w": 20, "h": 20}
-
             score = 5
 
             ShootingRange.Target.__init__(self, pos, vel,
-                                          accel, size, score)
+                                          accel, size, score, shr_scale)
 
-            pg.draw.ellipse(self.sprite, COLORS["RED"],
+            pg.draw.ellipse(self.sprite, COLORS.RED,
                             self.sprite.get_rect())
 
 
-    TARGET_TYPES = (RedBall,)
+    class GreenSquare(Target):
+        '''
+        Дочерний класс класса ShootingRange.Target,
+        реализующий мишень в форме зеленого квадрата
+        '''
+        def __init__(self, shr_scale):
+            '''
+            Функция, инициализирующая мишень в форме
+            зеленого квадрата
+            :param shr_scale: словарь {w, h} с размерами
+                              стрельбища
+            '''
+
+            size = {"w": 20, "h": 20}
+            pos = {
+                   "x": random.randint(0 + size["w"] // 2,
+                                       shr_scale["w"] - size["w"] // 2),
+                   "y": random.randint(0 + size["h"] // 2,
+                                       shr_scale["h"] - size["w"] // 2)
+                  }
+
+            vel_polar = {
+                         "r": random.randint(5, 8),
+                         "phi": 2 * math.pi * random.random()
+                        }
+
+            vel = {
+                   "x": vel_polar["r"] * math.cos(vel_polar["phi"]) // 1,
+                   "y": vel_polar["r"] * math.sin(vel_polar["phi"]) // 1
+                  }
+
+            for v in vel:
+                if vel[v] == 0:
+                    vel[v] = 1
+
+            accel = {"x": 0, "y": 0}
+            score = 10
+
+            ShootingRange.Target.__init__(self, pos, vel,
+                                          accel, size, score, shr_scale)
+
+            pg.draw.rect(self.sprite, COLORS.GREEN,
+                            self.sprite.get_rect())
+
+        def idle(self):
+            '''
+            Функция, описывающая дефолтное движение мишени
+            в виде зеленого квадрата
+            '''
+            ShootingRange.Target.idle(self)
+
+            self.accel = {
+                          "x": -0.8 / self.shr_scale["w"] * (self.pos["x"] -
+                                       self.shr_scale["w"] // 2),
+                          "y": -0.8 / self.shr_scale["h"] * (self.pos["y"] -
+                                       self.shr_scale["h"] // 2)
+                         }
+
+
+    TARGET_TYPES = (GreenSquare, RedBall)
 
     def __init__(self, pos, size, pool_size):
         '''
@@ -747,7 +830,7 @@ class ShootingRange(SubScreen):
         self.pool_size = pool_size
         self.pool = []
         self.manager = None
-        SubScreen.__init__(self, pos, size, COLORS["GREY"])
+        SubScreen.__init__(self, pos, size, COLORS.GREY)
 
     def idle(self):
         '''
