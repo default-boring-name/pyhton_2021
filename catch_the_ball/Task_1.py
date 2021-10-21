@@ -1,10 +1,11 @@
 import pygame as pg
+import subprocess as subprcs
 import random
 import enum
 import math
 import yaml
 import time
-import subprocess as subprcs
+import os
 
 pg.init()
 FPS = 30
@@ -30,6 +31,31 @@ class DIRECTION(enum.Flag):
     DOWN = enum.auto()
     LEFT = enum.auto()
     RIGHT = enum.auto()
+
+
+class Name:
+    '''
+    Класс, позволяющий давать объектам
+    уникальные имена
+    '''
+    Next = 0
+
+    def __init__(self, owner):
+        '''
+        Функция, инициализирущая объект имени
+        :param owner: ссылка на объект, которому будет
+                      принадлежать имя
+        '''
+        self.id_number = Name.Next
+        Name.Next += 1
+        self.type_ = str(type(owner))[17:-2]
+
+    def log_name(self):
+        '''
+        Функция, вовращающая имя объекта в формате
+        "<Class name>:<id>"
+        '''
+        return self.type_ + ":" + str(self.id_number)
 
 
 class OnScreenObj:
@@ -61,6 +87,7 @@ class OnScreenObj:
                             (size["w"], size["h"]))
         self.manager = None
         self.screen = None
+        self.name = Name(self)
 
     def idle(self):
         '''
@@ -72,10 +99,12 @@ class OnScreenObj:
     def call(self, event):
         '''
         Функция, принимающая события от обработчика событий
+        и возвращающая его лог в формате словаря
+        (или None, если событие не было обработано)
         :param event: объект события, которое необходимо
                       обработать
         '''
-        pass
+        return None
 
     def set_screen(self, screen):
         '''
@@ -162,6 +191,13 @@ class OnScreenObj:
 
         result = self.rect.top < y and y < self.rect.bottom
         return result
+
+    def __repr__(self):
+        '''
+        Функция, привязывающая __repr__ к имени объекта
+        '''
+
+        return self.name.log_name()
 
 
 class Text(OnScreenObj):
@@ -272,18 +308,34 @@ class ScoreLine(Text):
     def call(self, event):
         '''
         Функция, описывающая реакцию счетчика очков на полученное событие
+        и возвращающая его лог в формате словаря (или None, если событие
+        не было обработано)
         :param event: полученное событие, на которое счетчик
                       должен прореагировать
         '''
 
+        log_msg = None
+
         if event.type == ScoreLine.INCREASE:
+            log_msg = {
+                       "name": repr(self),
+                       "status": "Increased score by number",
+                       "number": event.increment
+                      }
+
             self.scores += event.increment
             if self.scores > 10 ** self.digit_number:
                 self.scores -= 10 ** self.digit_number
             self.write(self.scores_to_text())
 
         elif event.type == ScoreLine.SAVE:
+            log_msg = {
+                       "name": repr(self),
+                       "status": "Updated highscore.yml file"
+                      }
             self.save_scores()
+
+        return log_msg
 
     def scores_to_text(self):
         '''
@@ -320,11 +372,9 @@ class ScoreLine(Text):
                  }
         highscores = None
 
-        with open("highscore.yml", "a") as score_file:
-            pass
-
-        with open("highscore.yml", "r") as score_file:
-            highscores = yaml.safe_load(score_file)
+        if os.path.isfile("highscore.yml"):
+            with open("highscore.yml", "r") as score_file:
+                highscores = yaml.safe_load(score_file)
 
         if highscores == None:
             highscores = []
@@ -364,7 +414,16 @@ class EventManager:
         Функция для инициализация объекта менеджера событий
         '''
         self.pool = []
+        self.name = Name(self)
         self.end = False
+        self.log_hist = []
+
+        if os.path.isfile("log.yml"):
+            with open("log.yml", "r") as log_file:
+                self.log_hist = yaml.safe_load(log_file)
+
+        if self.log_hist == None:
+            self.log_hist = []
 
     def add_obj(self, obj):
         '''
@@ -374,13 +433,16 @@ class EventManager:
                     список(объект должен иметь метод
                     idle(), описывающий дефолтное поведение
                     объекта, метод call(), принимающий
-                    объект события, и метод set_manger() принимающий
+                    объект события и возвращающий его лог в формате
+                    словаря (или None, если событие не было
+                    обработано), и метод set_manger() принимающий
                     объект типа EventManager
-
         '''
         if obj not in self.pool:
             self.pool.append(obj)
             obj.set_manager(self)
+            return True
+        return False
 
     def remove_obj(self, obj):
         '''
@@ -391,6 +453,8 @@ class EventManager:
         '''
         if obj in self.pool:
             self.pool.remove(obj)
+            return True
+        return False
 
     def get_pool(self):
         '''
@@ -409,25 +473,45 @@ class EventManager:
 
         running = True
         for event in pg.event.get():
+            log_msg = None
 
             if event.type == pg.QUIT:
+                log_msg = {
+                           "name": repr(self),
+                           "status": "Preparing to exit"
+                          }
                 running = False
-
             elif event.type == EventManager.REMOVEOBJ:
-                self.remove_obj(event.target)
-
+                if self.remove_obj(event.target):
+                    log_msg = {
+                               "name": repr(self),
+                               "status": "Removed object from list",
+                               "object": repr(event.target)
+                              }
             elif event.type == EventManager.ADDOBJ:
-                self.add_obj(event.target)
-
+                if self.add_obj(event.target):
+                    log_msg = {
+                               "name": repr(self),
+                               "status": "Added object to list",
+                               "object": repr(event.target)
+                              }
             else:
                 for obj in self.pool:
-                    obj.call(event)
+                    self.log(obj.call(event))
+
+            self.log(log_msg)
 
         for obj in self.pool:
             obj.idle()
 
         if self.end:
-             return False
+            log_msg = {
+                       "name": repr(self),
+                       "status": "Exiting"
+                      }
+            self.log(log_msg)
+            self.save_log()
+            return False
 
         if not running:
             self.end = True
@@ -436,6 +520,27 @@ class EventManager:
             return True
 
         return running
+
+    def log(self, log_msg):
+        if log_msg != None:
+            log_time = time.strftime("%H:%M:%S %d.%m.%Y")
+            log_msg.update({"time": log_time})
+            self.log_hist.append(log_msg)
+
+    def save_log(self):
+        '''
+        Функция, сохраняющая логи
+        '''
+
+        with open("log.yml", "w") as log_file:
+            yaml.dump(self.log_hist, log_file, sort_keys=False)
+
+    def __repr__(self):
+        '''
+        Функция, привязывающая __repr__ к имени объекта
+        '''
+
+        return self.name.log_name()
 
 
 class Screen:
@@ -693,9 +798,14 @@ class ShootingRange(SubScreen):
         def call(self, event):
             '''
             Функция, описывающая реакцию мишени на полученное событие
+            и возвращающая его лог в формате словаря (или None, если событие
+            не было обработано)
             :param event: полученное событие, на которое мишень
                           должна прореагировать
             '''
+
+            log_msg = None
+
             if event.type == pg.MOUSEBUTTONDOWN:
                 screen_abs_pos = self.screen.get_absolute_pos()
                 rel_mouse_pos = {
@@ -704,6 +814,12 @@ class ShootingRange(SubScreen):
                                 }
 
                 if self.collide_point(rel_mouse_pos):
+
+                    log_msg = {
+                               "name": repr(self),
+                               "status": "Got popped"
+                              }
+
                     rm_event = pg.event.Event(ShootingRange.REMOVETARGET,
                                               {"target": self})
                     pg.event.post(rm_event)
@@ -714,12 +830,21 @@ class ShootingRange(SubScreen):
 
             elif event.type == ShootingRange.Target.WALLCOLLISION:
                 if event.target is self:
+
+                    direction = event.direction & ~ DIRECTION.NONE
+                    log_msg = {
+                               "name": repr(self),
+                               "status": "Collided with wall",
+                               "direction": direction.name
+                              }
+
                     new_pos = dict(self.pos)
                     if (event.direction & (DIRECTION.LEFT | DIRECTION.RIGHT)):
 
                         self.vel["x"] *= -1
 
                         if event.direction & DIRECTION.LEFT:
+
                             new_pos["x"] += -self.rect.left
 
                         if event.direction & DIRECTION.RIGHT:
@@ -738,6 +863,8 @@ class ShootingRange(SubScreen):
                                               - self.rect.bottom)
 
                     self.move(new_pos)
+
+            return log_msg
 
         def foresee_collide_point(self, pos):
             '''
@@ -892,6 +1019,7 @@ class ShootingRange(SubScreen):
         self.pool_size = pool_size
         self.pool = []
         self.manager = None
+        self.name = Name(self)
         SubScreen.__init__(self, pos, size, COLORS.GREY)
 
     def idle(self):
@@ -931,14 +1059,25 @@ class ShootingRange(SubScreen):
 
     def call(self, event):
         '''
-        Функция, принимающая события от обработчика событий
+        Функция, принимающая события от обработчика событий и
+        возвращающая его лог в формате словаря (или None,
+        если событие не было обработано)
         :param event: объект события, которое необходимо
                       обработать
         '''
 
+        log_msg = None
+
         if event.type == ShootingRange.ADDTARGET:
             new_target = event.target_type.__new__(event.target_type)
             new_target.__init__(self.size)
+
+            log_msg = {
+                       "name": repr(self),
+                       "status": "Created new target",
+                       "created target": repr(new_target)
+                      }
+
             self.pool.append(new_target)
 
             self.add_obj(new_target)
@@ -947,11 +1086,20 @@ class ShootingRange(SubScreen):
             pg.event.post(add_event)
 
         elif event.type == ShootingRange.REMOVETARGET:
+
+            log_msg = {
+                       "name": repr(self),
+                       "status": "Removed target",
+                       "removed target": repr(event.target)
+                      }
+
             self.pool.remove(event.target)
             self.remove_obj(event.target)
             rm_event = pg.event.Event(EventManager.REMOVEOBJ,
                                       {"target": event.target})
             pg.event.post(rm_event)
+
+        return log_msg
 
     def set_manager(self, event_manager):
         '''
@@ -961,6 +1109,12 @@ class ShootingRange(SubScreen):
                               нужно установить связь
         '''
         self.manager = event_manager
+
+    def __repr__(self):
+        '''
+        Функция, привязывающая __repr__ к имени объекта
+        '''
+        return self.name.log_name()
 
 
 screen = MainScreen(WIN_SIZE)
