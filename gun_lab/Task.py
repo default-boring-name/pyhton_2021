@@ -715,10 +715,25 @@ class SubScreen(Screen):
         return pos
 
 
-class ShootingRange(Screen):
+class ShootingRange(SubScreen):
     '''
     Класс активной области, которой происходит игра
     '''
+
+    class GameObj(OnScreenObj):
+        '''
+        Класс игрового объекта (объект,
+        находящийся в активной игровой области)
+        '''
+
+        # Событие игрового объекта
+        WALLCOLLISION = pg.event.custom_type()
+        '''
+        События данного типа должны иметь
+        атрибут target, указывающий на объект столкнувшийся
+        со стеной, и атрибут направления dir, являющийся
+        флагом DIRECTION
+        '''
 
     def __init__(self, pos, size):
         '''
@@ -727,7 +742,10 @@ class ShootingRange(Screen):
                     угла стрельбища
         :param size: словарь вида {"w", "h"}, размеры стрельбища
         '''
-        pass
+        self.manager = None
+        self.name = Name(self)
+        self.pool = []
+        super().__init__(pos, size, COLORS.GREY)
 
     def idle(self):
         '''
@@ -735,7 +753,28 @@ class ShootingRange(Screen):
         (проверка того, что все игровые оъекты находятся в пределах
          области)
         '''
-        pass
+
+        for obj in self.pool:
+            coll_flag = DIRECTION.NONE
+
+            if obj.collide_x(0):
+                coll_flag |= DIRECTION.LEFT
+
+            if obj.collide_x(self.size["w"]):
+                coll_flag |= DIRECTION.RIGHT
+
+            if obj.collide_y(0):
+                coll_flag |= DIRECTION.UP
+
+            if obj.collide_y(self.size["h"]):
+                coll_flag |= DIRECTION.DOWN
+
+            if coll_flag & ~DIRECTION.NONE:
+                event_type = ShootingRange.GameObj.WALLCOLLISION
+                coll_event = pg.event.Event(event_type,
+                                            {"taget": obj,
+                                             "dir": coll_flag})
+                pg.event.post(coll_event)
 
     def call(self, event):
         '''
@@ -754,13 +793,13 @@ class ShootingRange(Screen):
         :param event_manager: объект EventManager, с которым
                               нужно установить связь
         '''
-        pass
+        self.manager = event_manager
 
     def __str__(self):
         '''
         Функция, привязывающая __str__ к имени объекта
         '''
-        pass
+        return self.name.log_name()
 
 
 screen = MainScreen(WIN_SIZE)
