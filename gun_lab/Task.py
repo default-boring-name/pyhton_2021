@@ -192,9 +192,9 @@ class OnScreenObj:
         result = self.rect.top < y and y < self.rect.bottom
         return result
 
-    def __repr__(self):
+    def __str__(self):
         '''
-        Функция, привязывающая __repr__ к имени объекта
+        Функция, привязывающая __str__ к имени объекта
         '''
 
         return self.name.log_name()
@@ -241,9 +241,9 @@ class Text(OnScreenObj):
         self.font_obj = pg.font.SysFont(self.font_name, self.font_size)
 
         ref_pos = {"x": 0, "y": self.font_size // 2}
-        OnScreenObj.__init__(self, pos,
-                             {"w": 0, "h": self.font_size},
-                             ref_pos)
+        super().__init__(pos,
+                         {"w": 0, "h": self.font_size},
+                         ref_pos)
 
     def write(self, text):
         '''
@@ -299,8 +299,8 @@ class ScoreLine(Text):
 
         self.digit_number = digit_number
         self.scores = 0
-        Text.__init__(self, pos, size,
-                      justification=Text.JUSTIFICATION.CENTRE)
+        super().__init__(pos, size,
+                         justification=Text.JUSTIFICATION.CENTRE)
         self.write(self.scores_to_text())
 
     def call(self, event):
@@ -316,7 +316,7 @@ class ScoreLine(Text):
 
         if event.type == ScoreLine.INCREASE:
             log_msg = {
-                       "name": repr(self),
+                       "name": str(self),
                        "status": "Increased score by number",
                        "number": event.increment
                       }
@@ -328,7 +328,7 @@ class ScoreLine(Text):
 
         elif event.type == ScoreLine.SAVE:
             log_msg = {
-                       "name": repr(self),
+                       "name": str(self),
                        "status": "Updated highscore.yml file"
                       }
             self.save_scores()
@@ -475,23 +475,23 @@ class EventManager:
 
             if event.type == pg.QUIT:
                 log_msg = {
-                           "name": repr(self),
+                           "name": str(self),
                            "status": "Preparing to exit"
                           }
                 running = False
             elif event.type == EventManager.REMOVEOBJ:
                 if self.remove_obj(event.target):
                     log_msg = {
-                               "name": repr(self),
+                               "name": str(self),
                                "status": "Removed object from list",
-                               "object": repr(event.target)
+                               "object": str(event.target)
                               }
             elif event.type == EventManager.ADDOBJ:
                 if self.add_obj(event.target):
                     log_msg = {
-                               "name": repr(self),
+                               "name": str(self),
                                "status": "Added object to list",
-                               "object": repr(event.target)
+                               "object": str(event.target)
                               }
             else:
                 for obj in self.pool:
@@ -504,7 +504,7 @@ class EventManager:
 
         if self.end:
             log_msg = {
-                       "name": repr(self),
+                       "name": str(self),
                        "status": "Exiting"
                       }
             self.log(log_msg)
@@ -533,9 +533,9 @@ class EventManager:
         with open("log.yml", "w") as log_file:
             yaml.dump(self.log_hist, log_file, sort_keys=False)
 
-    def __repr__(self):
+    def __str__(self):
         '''
-        Функция, привязывающая __repr__ к имени объекта
+        Функция, привязывающая __str__ к имени объекта
         '''
 
         return self.name.log_name()
@@ -633,7 +633,7 @@ class MainScreen(Screen):
                          (заливка), по умолчания он белый
         '''
 
-        Screen.__init__(self, size, bg_color)
+        super().__init__(size, bg_color)
         self.surf = pg.display.set_mode((self.size["w"],
                                          self.size["h"]))
 
@@ -672,7 +672,7 @@ class SubScreen(Screen):
                          (заливка), по умолчания он прозрачный
         '''
         self.pos = dict(pos)
-        Screen.__init__(self, size, bg_color)
+        super().__init__(size, bg_color)
         self.screen = None
 
     def move(self, pos):
@@ -713,6 +713,54 @@ class SubScreen(Screen):
                "y": self.pos["y"] + screen_pos["y"]
               }
         return pos
+
+
+class ShootingRange(Screen):
+    '''
+    Класс активной области, которой происходит игра
+    '''
+
+    def __init__(self, pos, size):
+        '''
+        Функция инициализирующая активную игровую область
+        :param pos: словарь {x, y} с позицией левого верхнего
+                    угла стрельбища
+        :param size: словарь вида {"w", "h"}, размеры стрельбища
+        '''
+        pass
+
+    def idle(self):
+        '''
+        Фунция описывающая дефолтное поведение активной области
+        (проверка того, что все игровые оъекты находятся в пределах
+         области)
+        '''
+        pass
+
+    def call(self, event):
+        '''
+        Функция, принимающая события от обработчика событий и
+        возвращающая его лог в формате словаря (или None,
+        если событие не было обработано)
+        :param event: объект события, которое необходимо
+                      обработать
+        '''
+        pass
+
+    def set_manager(self, event_manager):
+        '''
+        Функция, устанавливающая связь с обработчиком
+        событий
+        :param event_manager: объект EventManager, с которым
+                              нужно установить связь
+        '''
+        pass
+
+    def __str__(self):
+        '''
+        Функция, привязывающая __str__ к имени объекта
+        '''
+        pass
 
 
 screen = MainScreen(WIN_SIZE)
