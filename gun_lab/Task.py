@@ -1,13 +1,11 @@
 import subprocess as subprcs
+import pygame as pg
 import random
 import enum
 import math
 import yaml
 import time
 import os
-
-os.environ["PYGAME_HIDE_SUPPORT_PROMT"] = "1"
-import pygame as pg
 
 pg.init()
 FPS = 30
@@ -25,6 +23,18 @@ class COLORS:
     YELLOW = (255, 255, 0),
     CYAN = (0, 255, 255),
     MAGENTA = (255, 0, 255)
+    ALL = [
+            TRANSPARENT,
+            BLACK,
+            WHITE,
+            GREY,
+            RED,
+            GREEN,
+            BLUE,
+            YELLOW,
+            CYAN,
+            MAGENTA
+          ]
 
 
 class DIRECTION(enum.Flag):
@@ -833,6 +843,22 @@ class ShootingRange(SubScreen):
     Класс активной области, в которой происходит игра
     '''
 
+    # События активной игровой области
+
+    REMOVEOBJ = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    атрибут target, указывающий на объект,
+    который нужно удалить
+    '''
+
+    ADDOBJ = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    атрибут target, указывающий на объект,
+    который нужно добавить
+    '''
+
     class GameObj(OnScreenObj):
         '''
         Класс игрового объекта (объект,
@@ -847,6 +873,35 @@ class ShootingRange(SubScreen):
         со стеной, и атрибут направления dir, являющийся
         флагом DIRECTION
         '''
+
+    class Bullet(GameObj):
+        '''
+        Класс пули для пушки
+        '''
+
+        def __init__(self, pos, vel):
+            '''
+            Функция, инициализуриющая пулю
+            :param pos: словарь {x, y} с позицией центра пули
+            :param vel: словарь {x, y} со скоростью центра пули
+            '''
+            pass
+
+        def idle(self):
+            '''
+            Функия, описывающая движение пули
+            '''
+            pass
+
+        def call(self, event):
+            '''
+            Функция, описывающая реакцию пули на полученное событие
+            и возвращающая его лог в формате словаря (или None, если событие
+            не было обработано)
+            :param event: полученное событие, на которое пуля
+                          должна прореагировать
+            '''
+            pass
 
     class Gun(GameObj):
         '''
@@ -877,54 +932,128 @@ class ShootingRange(SubScreen):
             log_msg = None
 
             if event.type == pg.MOUSEMOTION:
-                screen_abs_pos = self.screen.get_absolute_pos()
-                rel_mouse_pos = {
-                                 "x": event.pos[0] - screen_abs_pos["x"],
-                                 "y": event.pos[1] - screen_abs_pos["y"]
-                                }
-
-                dist = (abs(self.pos["y"] - rel_mouse_pos["y"])
-                        + abs(rel_mouse_pos["x"] - self.pos["x"]))
-                abs_angle = math.atan2(self.pos["y"] - rel_mouse_pos["y"],
-                                       rel_mouse_pos["x"] - self.pos["x"])
-
-                rel_angle = (abs_angle) * 180 / math.pi - self.angle
-
-                if abs(rel_angle * dist) >= 800:
-                    self.rotate(rel_angle)
-
-                    log_msg = {
-                               "name": str(self),
-                               "status": f"Rotated by {rel_angle}"
-                              }
+                mouse_pos = {"x": event.pos[0], "y": event.pos[1]}
+                log_msg = self.rotate_shaft(mouse_pos)
 
             if event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:
-                    if not self.aiming:
-                        self.aiming = True
-                        pg.draw.rect(self.sprite, COLORS.YELLOW,
-                                     self.sprite.get_rect())
-
-                        log_msg = {
-                                   "name": str(self),
-                                   "status": "Started to aim"
-                                  }
+                    log_msg = self.start_aiming()
 
             if event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:
-                    if self.aiming:
-                        self.aiming = False
-                        self.power = 10
-                        pg.draw.rect(self.sprite, COLORS.BLACK,
-                                     self.sprite.get_rect())
-                        self.resize(self.raw_size)
-
-                        log_msg = {
-                                   "name": str(self),
-                                   "status": "Fired"
-                                  }
+                    log_msg = self.fire()
 
             return log_msg
+
+        def rotate_shaft(self, pos):
+            '''
+            Функция, поворачивающая ствол пушки так, чтобы он
+            смотрел на переданные координаты и возвращаащая лог
+            при поворот (None, если поворота не было)
+            :param pos: словарь {x, y} с координатами точки,
+                        на которую должен указывать ствол,
+                        относительно окна приложения
+            '''
+            log_msg = None
+            screen_abs_pos = self.screen.get_absolute_pos()
+            rel_mouse_pos = {
+                             "x": pos["x"] - screen_abs_pos["x"],
+                             "y": pos["y"] - screen_abs_pos["y"]
+                            }
+
+            dist = (abs(self.pos["y"] - rel_mouse_pos["y"])
+                    + abs(rel_mouse_pos["x"] - self.pos["x"]))
+            abs_angle = math.atan2(self.pos["y"] - rel_mouse_pos["y"],
+                                   rel_mouse_pos["x"] - self.pos["x"])
+
+            rel_angle = (abs_angle) * 180 / math.pi - self.angle
+
+            if abs(rel_angle * dist) >= 800:
+                self.rotate(rel_angle)
+
+                log_msg = {
+                           "name": str(self),
+                           "status": f"Rotated by {rel_angle}"
+                          }
+
+            return log_msg
+
+        def start_aiming(self):
+            '''
+            Функция, переводящая пушку в режим прицеливания
+            и возращающая лог (None, если пушка не была
+            переведена в режим стрельбы)
+            '''
+            log_msg = None
+            if not self.aiming:
+                self.aiming = True
+                pg.draw.rect(self.sprite, COLORS.YELLOW,
+                             self.sprite.get_rect())
+
+                log_msg = {
+                           "name": str(self),
+                           "status": "Started to aim"
+                          }
+
+            return log_msg
+
+        def fire(self):
+            '''
+            Функция, производящая выстрел из пушки
+            и возвращающая лог (None, если выстрел не был произведен)
+            '''
+            log_msg = None
+            if self.aiming:
+                self.aiming = False
+
+                self.generate_bullet()
+
+                pg.draw.rect(self.sprite, COLORS.BLACK,
+                             self.sprite.get_rect())
+                self.resize(self.raw_size)
+
+                self.power = 10
+
+                log_msg = {
+                           "name": str(self),
+                           "status": "Fired"
+                          }
+
+            return log_msg
+
+        def generate_bullet(self):
+            '''
+            Функция, создающая новую пулю на конце ствола
+            со скоростью, сонаправленной со стволом
+            '''
+            sin = math.sin(self.angle / 180 * math.pi)
+            cos = math.cos(self.angle / 180 * math.pi)
+
+            scaled_end_pos = {"x": (self.scaled_size["w"]
+                                    - self.scaled_ref_pos["x"]),
+                              "y": (-(self.scaled_size["h"])
+                                    + self.scaled_ref_pos["y"])}
+            rotated_end_pos = {"x": (scaled_end_pos["x"]
+                                     * cos
+                                     - scaled_end_pos["y"]
+                                     * sin),
+                               "y": (scaled_end_pos["x"]
+                                     * sin
+                                     + scaled_end_pos["y"]
+                                     * cos)}
+            shaft_end_pos = {"x": (rotated_end_pos["x"]
+                                   + self.pos["x"]),
+                             "y": (rotated_end_pos["y"]
+                                   + self.pos["x"])}
+
+            vel = {"x": self.power / 10 * cos,
+                   "y": self.power / 10 * sin}
+
+            new_bullet = ShootingRange.Bullet(shaft_end_pos, vel)
+
+            add_event = pg.event.Event(ShootingRange.ADDOBJ,
+                                       {"target": new_bullet})
+            pg.event.post(add_event)
 
         def idle(self):
             '''
