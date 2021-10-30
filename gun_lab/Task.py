@@ -79,11 +79,15 @@ class OnScreenObj:
         '''
 
         self.pos = dict(pos)
-        self.size = dict(size)
-        self.ref_pos = dict(ref_pos)
 
         self.raw_size = dict(size)
         self.raw_ref_pos = dict(ref_pos)
+
+        self.scaled_size = dict(size)
+        self.scaled_ref_pos = dict(ref_pos)
+
+        self.size = dict(size)
+        self.ref_pos = dict(ref_pos)
 
         self.sprite = pg.Surface((self.size["w"], self.size["h"]),
                                  pg.SRCALPHA)
@@ -91,7 +95,6 @@ class OnScreenObj:
                              self.pos["y"] - self.ref_pos["y"]),
                             (self.size["w"], self.size["h"]))
         self.angle = 0
-        self.scale = {"w": 1, "h": 1}
         self.manager = None
         self.screen = None
         self.name = Name(self)
@@ -160,14 +163,15 @@ class OnScreenObj:
         if self.raw_ref_pos["x"] > size["w"] or adjust_ref["x"]:
             self.ref_pos["x"] = (self.raw_ref_pos["x"]
                                  * size["w"] / self.raw_size["w"])
+            self.scaled_ref_pos["x"] = self.ref_pos["x"]
 
         if self.raw_ref_pos["y"] > size["h"] or adjust_ref["y"]:
             self.ref_pos["y"] = (self.raw_ref_pos["y"]
                                  * size["h"] / self.raw_size["h"])
-        self.size = dict(size)
+            self.scaled_ref_pos["y"] = self.ref_pos["y"]
 
-        self.scale = {"w": size["w"] / self.raw_size["w"],
-                      "h": size["h"] / self.raw_size["h"]}
+        self.size = dict(size)
+        self.scaled_size = dict(size)
 
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
@@ -187,52 +191,52 @@ class OnScreenObj:
 
         if 0 < self.angle and self.angle <= 90:
             self.ref_pos = {
-                            "x": (self.raw_ref_pos["x"] * cos
-                                  + self.raw_ref_pos["y"] * sin),
+                            "x": (self.scaled_ref_pos["x"] * cos
+                                  + self.scaled_ref_pos["y"] * sin),
 
-                            "y": (self.raw_size["w"] * sin
-                                  + self.raw_ref_pos["x"] * (-sin)
-                                  + self.raw_ref_pos["y"] * cos)
+                            "y": (self.scaled_size["w"] * sin
+                                  + self.scaled_ref_pos["x"] * (-sin)
+                                  + self.scaled_ref_pos["y"] * cos)
                            }
 
         elif 90 < self.angle and self.angle <= 180:
             self.ref_pos = {
-                            "x": (self.raw_size["w"] * cos
-                                  + self.raw_ref_pos["x"] * (-cos)
-                                  + self.raw_ref_pos["y"] * sin),
+                            "x": (self.scaled_size["w"] * cos
+                                  + self.scaled_ref_pos["x"] * (-cos)
+                                  + self.scaled_ref_pos["y"] * sin),
 
-                            "y": (self.raw_size["w"] * sin
-                                  + self.raw_size["h"] * cos
-                                  + self.raw_ref_pos["x"] * (-sin)
-                                  + self.raw_ref_pos["y"] * (-cos))
+                            "y": (self.scaled_size["w"] * sin
+                                  + self.scaled_size["h"] * cos
+                                  + self.scaled_ref_pos["x"] * (-sin)
+                                  + self.scaled_ref_pos["y"] * (-cos))
                            }
 
         elif -90 < self.angle and self.angle <= 0:
             self.ref_pos = {
-                            "x": (self.raw_size["h"] * sin
-                                  + self.raw_ref_pos["x"] * cos
-                                  + self.raw_ref_pos["y"] * (-sin)),
+                            "x": (self.scaled_size["h"] * sin
+                                  + self.scaled_ref_pos["x"] * cos
+                                  + self.scaled_ref_pos["y"] * (-sin)),
 
-                            "y": (self.raw_ref_pos["x"] * sin
-                                  + self.raw_ref_pos["y"] * cos)
+                            "y": (self.scaled_ref_pos["x"] * sin
+                                  + self.scaled_ref_pos["y"] * cos)
                            }
 
         else:
             self.ref_pos = {
-                            "x": (self.raw_size["w"] * cos
-                                  + self.raw_size["h"] * sin
-                                  + self.raw_ref_pos["x"] * (-cos)
-                                  + self.raw_ref_pos["y"] * (-sin)),
+                            "x": (self.scaled_size["w"] * cos
+                                  + self.scaled_size["h"] * sin
+                                  + self.scaled_ref_pos["x"] * (-cos)
+                                  + self.scaled_ref_pos["y"] * (-sin)),
 
-                            "y": (self.raw_size["h"] * cos
-                                  + self.raw_ref_pos["x"] * sin
-                                  + self.raw_ref_pos["y"] * (-cos))
+                            "y": (self.scaled_size["h"] * cos
+                                  + self.scaled_ref_pos["x"] * sin
+                                  + self.scaled_ref_pos["y"] * (-cos))
                            }
 
-        self.size = {"w": (self.raw_size["w"] * cos
-                           + self.raw_size["h"] * abs(sin)),
-                     "h": (self.raw_size["h"] * cos
-                           + self.raw_size["w"] * abs(sin))}
+        self.size = {"w": (self.scaled_size["w"] * cos
+                           + self.scaled_size["h"] * abs(sin)),
+                     "h": (self.scaled_size["h"] * cos
+                           + self.scaled_size["w"] * abs(sin))}
 
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
@@ -242,8 +246,9 @@ class OnScreenObj:
         '''
         Функция рисующая объект на предустановленном экране
         '''
-        blit_size = {"w": self.raw_size["w"] * self.scale["w"],
-                     "h": self.raw_size["h"] * self.scale["h"]}
+        self.rotate(0)
+        blit_size = {"w": int(self.scaled_size["w"]),
+                     "h": int(self.scaled_size["h"])}
 
         blit_sprite = pg.transform.scale(self.sprite, (blit_size["w"],
                                                        blit_size["h"]))
@@ -853,12 +858,13 @@ class ShootingRange(SubScreen):
             Функция, инициализирующая пушку
             :param pos: словарь {x, y} с позицией основания ствола пушки
             '''
+            self.aiming = False
+            self.power = 10
             size = {"w": 40, "h": 10}
             ref_pos = {"x": 5, "y": 5}
 
             super().__init__(pos, size, ref_pos)
-            draw_rect = pg.Rect((1, 1), (38, 8))
-            pg.draw.rect(self.sprite, COLORS.BLACK, draw_rect)
+            pg.draw.rect(self.sprite, COLORS.BLACK, self.sprite.get_rect())
 
         def call(self, event):
             '''
@@ -886,12 +892,50 @@ class ShootingRange(SubScreen):
 
                 if abs(rel_angle * dist) >= 800:
                     self.rotate(rel_angle)
+
                     log_msg = {
                                "name": str(self),
                                "status": f"Rotated by {rel_angle}"
                               }
 
+            if event.type == pg.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if not self.aiming:
+                        self.aiming = True
+                        pg.draw.rect(self.sprite, COLORS.YELLOW,
+                                     self.sprite.get_rect())
+
+                        log_msg = {
+                                   "name": str(self),
+                                   "status": "Started to aim"
+                                  }
+
+            if event.type == pg.MOUSEBUTTONUP:
+                if event.button == 1:
+                    if self.aiming:
+                        self.aiming = False
+                        self.power = 10
+                        pg.draw.rect(self.sprite, COLORS.BLACK,
+                                     self.sprite.get_rect())
+                        self.resize(self.raw_size)
+
+                        log_msg = {
+                                   "name": str(self),
+                                   "status": "Fired"
+                                  }
+
             return log_msg
+
+        def idle(self):
+            '''
+            Функция, описывающая дефолтное поведения пушки
+            '''
+            if self.aiming and self.power <= 100:
+                self.power += 0.5
+                new_size = {"w": self.raw_size["w"] + self.power - 10,
+                            "h": self.raw_size["h"]}
+                adjust = {"x": False, "y": True}
+                self.resize(new_size, adjust)
 
     def __init__(self, pos, size):
         '''
