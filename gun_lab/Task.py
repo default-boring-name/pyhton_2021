@@ -1,4 +1,3 @@
-import pygame as pg
 import subprocess as subprcs
 import random
 import enum
@@ -6,6 +5,9 @@ import math
 import yaml
 import time
 import os
+
+os.environ["PYGAME_HIDE_SUPPORT_PROMT"] = "1"
+import pygame as pg
 
 pg.init()
 FPS = 30
@@ -180,24 +182,51 @@ class OnScreenObj:
         self.angle += angle
 
         rad_angle = self.angle / 180 * math.pi
-        sin = math.sin(rad_angle)
-        cos = math.cos(rad_angle)
+        sin = abs(math.sin(rad_angle))
+        cos = abs(math.cos(rad_angle))
 
-        if self.angle > 0:
+        if 0 < self.angle and self.angle <= 90:
             self.ref_pos = {
                             "x": (self.raw_ref_pos["x"] * cos
                                   + self.raw_ref_pos["y"] * sin),
+
                             "y": (self.raw_size["w"] * sin
                                   + self.raw_ref_pos["x"] * (-sin)
                                   + self.raw_ref_pos["y"] * cos)
                            }
+
+        elif 90 < self.angle and self.angle <= 180:
+            self.ref_pos = {
+                            "x": (self.raw_size["w"] * cos
+                                  + self.raw_ref_pos["x"] * (-cos)
+                                  + self.raw_ref_pos["y"] * sin),
+
+                            "y": (self.raw_size["w"] * sin
+                                  + self.raw_size["h"] * cos
+                                  + self.raw_ref_pos["x"] * (-sin)
+                                  + self.raw_ref_pos["y"] * (-cos))
+                           }
+
+        elif -90 < self.angle and self.angle <= 0:
+            self.ref_pos = {
+                            "x": (self.raw_size["h"] * sin
+                                  + self.raw_ref_pos["x"] * cos
+                                  + self.raw_ref_pos["y"] * (-sin)),
+
+                            "y": (self.raw_ref_pos["x"] * sin
+                                  + self.raw_ref_pos["y"] * cos)
+                           }
+
         else:
             self.ref_pos = {
-                            "x": (self.raw_size["h"] * (-sin)
-                                  + self.raw_ref_pos["x"] * cos
-                                  + self.raw_ref_pos["y"] * sin),
-                            "y": (self.raw_ref_pos["x"] * (-sin)
-                                  + self.raw_ref_pos["y"] * cos)
+                            "x": (self.raw_size["w"] * cos
+                                  + self.raw_size["h"] * sin
+                                  + self.raw_ref_pos["x"] * (-cos)
+                                  + self.raw_ref_pos["y"] * (-sin)),
+
+                            "y": (self.raw_size["h"] * cos
+                                  + self.raw_ref_pos["x"] * sin
+                                  + self.raw_ref_pos["y"] * (-cos))
                            }
 
         self.size = {"w": (self.raw_size["w"] * cos
@@ -814,6 +843,56 @@ class ShootingRange(SubScreen):
         флагом DIRECTION
         '''
 
+    class Gun(GameObj):
+        '''
+        Класс пушки
+        '''
+
+        def __init__(self, pos):
+            '''
+            Функция, инициализирующая пушку
+            :param pos: словарь {x, y} с позицией основания ствола пушки
+            '''
+            size = {"w": 40, "h": 10}
+            ref_pos = {"x": 5, "y": 5}
+
+            super().__init__(pos, size, ref_pos)
+            draw_rect = pg.Rect((1, 1), (38, 8))
+            pg.draw.rect(self.sprite, COLORS.BLACK, draw_rect)
+
+        def call(self, event):
+            '''
+            Функция, описывающая реакцию пушки на полученное событие
+            и возвращающая его лог в формате словаря (или None, если событие
+            не было обработано)
+            :param event: полученное событие, на которое пушка
+                          должна прореагировать
+            '''
+            log_msg = None
+
+            if event.type == pg.MOUSEMOTION:
+                screen_abs_pos = self.screen.get_absolute_pos()
+                rel_mouse_pos = {
+                                 "x": event.pos[0] - screen_abs_pos["x"],
+                                 "y": event.pos[1] - screen_abs_pos["y"]
+                                }
+
+                dist = (abs(self.pos["y"] - rel_mouse_pos["y"])
+                        + abs(rel_mouse_pos["x"] - self.pos["x"]))
+                abs_angle = math.atan2(self.pos["y"] - rel_mouse_pos["y"],
+                                       rel_mouse_pos["x"] - self.pos["x"])
+
+                rel_angle = (abs_angle) * 180 / math.pi - self.angle
+
+                if abs(rel_angle * dist) >= 800:
+                    self.rotate(rel_angle)
+                    log_msg = {
+                               "name": str(self),
+                               "status": f"Rotated by {rel_angle}"
+                              }
+
+            return log_msg
+
     def __init__(self, pos, size):
         '''
         Функция инициализирующая активную игровую область
@@ -825,6 +904,10 @@ class ShootingRange(SubScreen):
         self.name = Name(self)
         self.pool = []
         super().__init__(pos, size, COLORS.GREY)
+
+        gun = ShootingRange.Gun({"x": 50, "y": self.size["h"] - 50})
+        self.pool.append(gun)
+        self.add_obj(gun)
 
     def idle(self):
         '''
@@ -874,6 +957,11 @@ class ShootingRange(SubScreen):
         '''
         self.manager = event_manager
 
+        for obj in self.pool:
+            add_event = pg.event.Event(EventManager.ADDOBJ,
+                                       {"target": obj})
+            pg.event.post(add_event)
+
     def __str__(self):
         '''
         Функция, привязывающая __str__ к имени объекта
@@ -884,6 +972,11 @@ class ShootingRange(SubScreen):
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
+
+sh_range = ShootingRange({"x": 50, "y": 75},
+                         {"w": 700, "h": 500})
+screen.add_obj(sh_range)
+manager.add_obj(sh_range)
 
 while manager.run():
     screen.update()
