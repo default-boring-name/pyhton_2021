@@ -78,12 +78,18 @@ class OnScreenObj:
 
         self.pos = dict(pos)
         self.size = dict(size)
-        self.ref_pos = ref_pos
+        self.ref_pos = dict(ref_pos)
+
+        self.raw_size = dict(size)
+        self.raw_ref_pos = dict(ref_pos)
+
         self.sprite = pg.Surface((self.size["w"], self.size["h"]),
                                  pg.SRCALPHA)
-        self.rect = pg.Rect((pos["x"] - ref_pos["x"],
-                             pos["y"] - ref_pos["y"]),
-                            (size["w"], size["h"]))
+        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
+                             self.pos["y"] - self.ref_pos["y"]),
+                            (self.size["w"], self.size["h"]))
+        self.angle = 0
+        self.scale = {"w": 1, "h": 1}
         self.manager = None
         self.screen = None
         self.name = Name(self)
@@ -149,50 +155,56 @@ class OnScreenObj:
                      !Если опорная точка окажется за пределами спрайта,
                      то маштабирование будет произведено автоматически!
         '''
-        if self.ref_pos["x"] > size["w"] or adjust_ref["x"]:
-            self.ref_pos["x"] *= size["w"] / self.size["w"]
-            self.ref_pos["x"] = int(self.ref_pos["x"])
+        if self.raw_ref_pos["x"] > size["w"] or adjust_ref["x"]:
+            self.ref_pos["x"] = (self.raw_ref_pos["x"]
+                                 * size["w"] / self.raw_size["w"])
 
-        if self.ref_pos["y"] > size["h"] or adjust_ref["y"]:
-            self.ref_pos["y"] *= size["h"] / self.size["h"]
-            self.ref_pos["y"] = int(self.ref_pos["y"])
-
+        if self.raw_ref_pos["y"] > size["h"] or adjust_ref["y"]:
+            self.ref_pos["y"] = (self.raw_ref_pos["y"]
+                                 * size["h"] / self.raw_size["h"])
         self.size = dict(size)
-        self.sprite = pg.transform.scale(self.sprite, (self.size["w"],
-                                                       self.size["h"]))
+
+        self.scale = {"w": size["w"] / self.raw_size["w"],
+                      "h": size["h"] / self.raw_size["h"]}
+
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
                             (self.size["w"], self.size["h"]))
 
-    def rotate(self, alpha):
+    def rotate(self, angle):
         '''
         Функция, поворачивающая игровой объект на некоторый угол
-        :param alpha: угол в градусах, на который нужно повернуть объект
+        :param angle: угол в градусах, на который нужно повернуть объект
                       против часовой стрелки.
         '''
-        rad_alpha = alpha / 180 * math.pi
-        sin = math.sin(rad_alpha)
-        cos = math.cos(rad_alpha)
-        if alpha > 0:
+        self.angle += angle
+
+        rad_angle = self.angle / 180 * math.pi
+        sin = math.sin(rad_angle)
+        cos = math.cos(rad_angle)
+
+        if self.angle > 0:
             self.ref_pos = {
-                            "x": int(self.ref_pos["x"] * cos
-                                     + self.ref_pos["y"] * sin),
-                            "y": int(self.size["w"] * sin
-                                     + self.ref_pos["x"] * (-sin)
-                                     + self.ref_pos["y"] * cos)
+                            "x": (self.raw_ref_pos["x"] * cos
+                                  + self.raw_ref_pos["y"] * sin),
+                            "y": (self.raw_size["w"] * sin
+                                  + self.raw_ref_pos["x"] * (-sin)
+                                  + self.raw_ref_pos["y"] * cos)
                            }
         else:
             self.ref_pos = {
-                            "x": int(self.size["h"] * (-sin)
-                                     + self.ref_pos["x"] * cos
-                                     + self.ref_pos["y"] * sin),
-                            "y": int(self.ref_pos["x"] * (-sin)
-                                     + self.ref_pos["y"] * cos)
+                            "x": (self.raw_size["h"] * (-sin)
+                                  + self.raw_ref_pos["x"] * cos
+                                  + self.raw_ref_pos["y"] * sin),
+                            "y": (self.raw_ref_pos["x"] * (-sin)
+                                  + self.raw_ref_pos["y"] * cos)
                            }
 
-        self.sprite = pg.transform.rotate(self.sprite, alpha)
-        self.size = {"w": self.sprite.get_rect().w,
-                     "h": self.sprite.get_rect().h}
+        self.size = {"w": (self.raw_size["w"] * cos
+                           + self.raw_size["h"] * abs(sin)),
+                     "h": (self.raw_size["h"] * cos
+                           + self.raw_size["w"] * abs(sin))}
+
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
                             (self.size["w"], self.size["h"]))
@@ -201,8 +213,17 @@ class OnScreenObj:
         '''
         Функция рисующая объект на предустановленном экране
         '''
+        blit_size = {"w": self.raw_size["w"] * self.scale["w"],
+                     "h": self.raw_size["h"] * self.scale["h"]}
 
-        self.screen.get_surface().blit(self.sprite, self.rect)
+        blit_sprite = pg.transform.scale(self.sprite, (blit_size["w"],
+                                                       blit_size["h"]))
+        blit_sprite = pg.transform.rotate(blit_sprite, self.angle)
+
+        blit_rect = pg.Rect((int(self.rect.x), int(self.rect.y)),
+                            (int(self.rect.w), int(self.rect.h)))
+
+        self.screen.get_surface().blit(blit_sprite, blit_rect)
 
     def collide_point(self, pos):
         '''
@@ -775,7 +796,7 @@ class SubScreen(Screen):
 
 class ShootingRange(SubScreen):
     '''
-    Класс активной области, которой происходит игра
+    Класс активной области, в которой происходит игра
     '''
 
     class GameObj(OnScreenObj):
