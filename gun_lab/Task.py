@@ -76,7 +76,6 @@ class OnScreenObj:
                         спрайта
         '''
 
-        self.screen = screen
         self.pos = dict(pos)
         self.size = dict(size)
         self.ref_pos = ref_pos
@@ -135,6 +134,65 @@ class OnScreenObj:
         '''
 
         self.pos = dict(pos)
+        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
+                             self.pos["y"] - self.ref_pos["y"]),
+                            (self.size["w"], self.size["h"]))
+
+    def resize(self, size, adjust_ref={"x": True, "y": True}):
+        '''
+        Функция, изменяющая размеры игрового объекта.
+        :param size: словарь {w, h} с новыми размерами игрового
+                     объекта (спрайт объекта будет отмаштабирован)
+        :adjust_ref: словарь {x, y} с флагами, показывающими надо ли
+                     отмаштабировать положение опорной точки относительно
+                     спрайта, по умолчанияю имеет значение {True, True}.
+                     !Если опорная точка окажется за пределами спрайта,
+                     то маштабирование будет произведено автоматически!
+        '''
+        if self.ref_pos["x"] > size["w"] or adjust_ref["x"]:
+            self.ref_pos["x"] *= size["w"] / self.size["w"]
+            self.ref_pos["x"] = int(self.ref_pos["x"])
+
+        if self.ref_pos["y"] > size["h"] or adjust_ref["y"]:
+            self.ref_pos["y"] *= size["h"] / self.size["h"]
+            self.ref_pos["y"] = int(self.ref_pos["y"])
+
+        self.size = dict(size)
+        self.sprite = pg.transform.scale(self.sprite, (self.size["w"],
+                                                       self.size["h"]))
+        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
+                             self.pos["y"] - self.ref_pos["y"]),
+                            (self.size["w"], self.size["h"]))
+
+    def rotate(self, alpha):
+        '''
+        Функция, поворачивающая игровой объект на некоторый угол
+        :param alpha: угол в градусах, на который нужно повернуть объект
+                      против часовой стрелки.
+        '''
+        rad_alpha = alpha / 180 * math.pi
+        sin = math.sin(rad_alpha)
+        cos = math.cos(rad_alpha)
+        if alpha > 0:
+            self.ref_pos = {
+                            "x": int(self.ref_pos["x"] * cos
+                                     + self.ref_pos["y"] * sin),
+                            "y": int(self.size["w"] * sin
+                                     + self.ref_pos["x"] * (-sin)
+                                     + self.ref_pos["y"] * cos)
+                           }
+        else:
+            self.ref_pos = {
+                            "x": int(self.size["h"] * (-sin)
+                                     + self.ref_pos["x"] * cos
+                                     + self.ref_pos["y"] * sin),
+                            "y": int(self.ref_pos["x"] * (-sin)
+                                     + self.ref_pos["y"] * cos)
+                           }
+
+        self.sprite = pg.transform.rotate(self.sprite, alpha)
+        self.size = {"w": self.sprite.get_rect().w,
+                     "h": self.sprite.get_rect().h}
         self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
                              self.pos["y"] - self.ref_pos["y"]),
                             (self.size["w"], self.size["h"]))
@@ -644,7 +702,7 @@ class MainScreen(Screen):
         все обЪекты, содержащиеся в списке для отрисовки)
         '''
 
-        Screen.update(self)
+        super().update()
 
         pg.display.update()
 
@@ -805,7 +863,6 @@ class ShootingRange(SubScreen):
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
 clock = pg.time.Clock()
-
 
 while manager.run():
     screen.update()
