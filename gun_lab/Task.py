@@ -154,10 +154,9 @@ class OnScreenObj:
                     которую необходимо переместить объект
         '''
 
+        self.rect.move_ip(pos["x"] - self.pos["x"],
+                          pos["y"] - self.pos["y"])
         self.pos = dict(pos)
-        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
-                             self.pos["y"] - self.ref_pos["y"]),
-                            (self.size["w"], self.size["h"]))
 
     def resize(self, size, adjust_ref={"x": True, "y": True}):
         '''
@@ -647,6 +646,8 @@ class EventManager:
             log_time = time.strftime("%H:%M:%S %d.%m.%Y")
             log_msg.update({"time": log_time})
             self.log_hist.append(log_msg)
+            while len(self.log_hist) > 1000:
+                self.log_hist.pop(0)
 
     def save_log(self):
         '''
@@ -871,7 +872,8 @@ class ShootingRange(SubScreen):
         События данного типа должны иметь
         атрибут target, указывающий на объект столкнувшийся
         со стеной, и атрибут направления dir, являющийся
-        флагом DIRECTION
+        флагом DIRECTION, и атрибут border содержащий координаты
+        стены, с которой столкнулся объект
         '''
 
     class Bullet(GameObj):
@@ -885,13 +887,30 @@ class ShootingRange(SubScreen):
             :param pos: словарь {x, y} с позицией центра пули
             :param vel: словарь {x, y} со скоростью центра пули
             '''
-            pass
+            self.vel = dict(vel)
+            self.accel = {"x": 0, "y": 0.7}
+            self.color = COLORS.RED
+
+            size = {"w": 30, "h": 30}
+            ref_pos = {"x": 5, "y": 5}
+            super().__init__(pos, size, ref_pos)
+
+            pg.draw.ellipse(self.sprite, self.color,
+                            self.sprite.get_rect())
 
         def idle(self):
             '''
             Функия, описывающая движение пули
             '''
-            pass
+            new_pos = {
+                       "x": self.pos["x"] + self.vel["x"] // 1,
+                       "y": self.pos["y"] + self.vel["y"] // 1
+                      }
+            self.vel = {
+                        "x": self.vel["x"] + self.accel["x"],
+                        "y": self.vel["y"] + self.accel["y"]
+                       }
+            self.move(new_pos)
 
         def call(self, event):
             '''
@@ -901,7 +920,75 @@ class ShootingRange(SubScreen):
             :param event: полученное событие, на которое пуля
                           должна прореагировать
             '''
-            pass
+            log_msg = None
+            if event.type == ShootingRange.GameObj.WALLCOLLISION:
+                if event.target is self:
+                    direction = event.dir & ~ DIRECTION.NONE
+                    log_msg = {
+                               "name": repr(self),
+                               "status": "Collided with wall",
+                               "direction": direction.name
+                              }
+
+                    new_pos = dict(self.pos)
+                    if (direction & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+
+                        self.vel["x"] *= -0.5
+                        if abs(self.vel["x"]) < 3:
+                            self.vel["x"] = 0
+                            self.accel["x"] = 0
+
+                        if direction & DIRECTION.LEFT:
+
+                            new_pos["x"] += -(self.rect.left - event.border)
+
+                        if direction & DIRECTION.RIGHT:
+                            new_pos["x"] += -(event.border - self.rect.right)
+
+                    if (direction & (DIRECTION.UP | DIRECTION.DOWN)):
+
+                        self.vel["y"] *= -0.5
+                        if abs(self.vel["y"]) < 3:
+                            self.vel["y"] = 0
+                            self.accel["y"] = 0
+
+                        if direction & DIRECTION.UP:
+                            new_pos["y"] += -(self.rect.top - event.border)
+
+                        if direction & DIRECTION.DOWN:
+                            new_pos["y"] += -(event.border - self.rect.bottom)
+
+                    self.move(new_pos)
+
+            return log_msg
+
+        def collide_x(self, x):
+            '''
+            Функция, проверярющая пресекается ли пуля с вертикальной
+            прямой с абсциссой равной х с учетом движения
+            :param x: абсцисса прямой, с которой надо проверить
+                      пересечение
+            '''
+
+            advanced_rect = pg.Rect(self.rect)
+            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
+            union = pg.Rect.union(self.rect, advanced_rect)
+
+            return union.left < x < union.right
+
+        def collide_y(self, y):
+            '''
+            Функция, проверярющая пресекается ли пуля с горизонтальной
+            прямой с ординатой равной y с учетом движения
+            :param y: ордината прямой, с которой надо проверить
+                      пересечение
+            '''
+
+            advanced_rect = pg.Rect(self.rect)
+            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
+            union = pg.Rect.union(self.rect, advanced_rect)
+
+            return union.top < y < union.bottom
 
     class Gun(GameObj):
         '''
@@ -967,7 +1054,6 @@ class ShootingRange(SubScreen):
                                    rel_mouse_pos["x"] - self.pos["x"])
 
             rel_angle = (abs_angle) * 180 / math.pi - self.angle
-
             if abs(rel_angle * dist) >= 800:
                 self.rotate(rel_angle)
 
@@ -1031,8 +1117,7 @@ class ShootingRange(SubScreen):
 
             scaled_end_pos = {"x": (self.scaled_size["w"]
                                     - self.scaled_ref_pos["x"]),
-                              "y": (-(self.scaled_size["h"])
-                                    + self.scaled_ref_pos["y"])}
+                              "y": 0}
             rotated_end_pos = {"x": (scaled_end_pos["x"]
                                      * cos
                                      - scaled_end_pos["y"]
@@ -1043,11 +1128,11 @@ class ShootingRange(SubScreen):
                                      * cos)}
             shaft_end_pos = {"x": (rotated_end_pos["x"]
                                    + self.pos["x"]),
-                             "y": (rotated_end_pos["y"]
-                                   + self.pos["x"])}
+                             "y": ((-rotated_end_pos["y"])
+                                   + self.pos["y"])}
 
-            vel = {"x": self.power / 10 * cos,
-                   "y": self.power / 10 * sin}
+            vel = {"x": self.power / 2 * cos,
+                   "y": - self.power / 2 * sin}
 
             new_bullet = ShootingRange.Bullet(shaft_end_pos, vel)
 
@@ -1091,24 +1176,30 @@ class ShootingRange(SubScreen):
 
         for obj in self.pool:
             coll_flag = DIRECTION.NONE
+            border = None
 
             if obj.collide_x(0):
                 coll_flag |= DIRECTION.LEFT
+                border = 0
 
             if obj.collide_x(self.size["w"]):
                 coll_flag |= DIRECTION.RIGHT
+                border = self.size["w"]
 
             if obj.collide_y(0):
                 coll_flag |= DIRECTION.UP
+                border = 0
 
             if obj.collide_y(self.size["h"]):
                 coll_flag |= DIRECTION.DOWN
+                border = self.size["h"]
 
             if coll_flag & ~DIRECTION.NONE:
                 event_type = ShootingRange.GameObj.WALLCOLLISION
                 coll_event = pg.event.Event(event_type,
-                                            {"taget": obj,
-                                             "dir": coll_flag})
+                                            {"target": obj,
+                                             "dir": coll_flag,
+                                             "border": border})
                 pg.event.post(coll_event)
 
     def call(self, event):
@@ -1119,7 +1210,12 @@ class ShootingRange(SubScreen):
         :param event: объект события, которое необходимо
                       обработать
         '''
-        pass
+        if event.type == ShootingRange.ADDOBJ:
+            self.pool.append(event.target)
+            self.add_obj(event.target)
+            add_event = pg.event.Event(EventManager.ADDOBJ,
+                                       {"target": event.target})
+            pg.event.post(add_event)
 
     def set_manager(self, event_manager):
         '''
