@@ -903,8 +903,8 @@ class ShootingRange(SubScreen):
             Функия, описывающая движение пули
             '''
             new_pos = {
-                       "x": self.pos["x"] + self.vel["x"] // 1,
-                       "y": self.pos["y"] + self.vel["y"] // 1
+                       "x": self.pos["x"] + self.vel["x"],
+                       "y": self.pos["y"] + self.vel["y"]
                       }
             self.vel = {
                         "x": self.vel["x"] + self.accel["x"],
@@ -940,10 +940,12 @@ class ShootingRange(SubScreen):
 
                         if direction & DIRECTION.LEFT:
 
-                            new_pos["x"] += -(self.rect.left - event.border)
+                            new_pos["x"] += max(0, (event.border
+                                                    - self.rect.left))
 
                         if direction & DIRECTION.RIGHT:
-                            new_pos["x"] += -(event.border - self.rect.right)
+                            new_pos["x"] += min(0, (event.border
+                                                    - self.rect.right))
 
                     if (direction & (DIRECTION.UP | DIRECTION.DOWN)):
 
@@ -953,10 +955,12 @@ class ShootingRange(SubScreen):
                             self.accel["y"] = 0
 
                         if direction & DIRECTION.UP:
-                            new_pos["y"] += -(self.rect.top - event.border)
+                            new_pos["y"] += max(0, (event.border
+                                                    - self.rect.top))
 
                         if direction & DIRECTION.DOWN:
-                            new_pos["y"] += -(event.border - self.rect.bottom)
+                            new_pos["y"] += min(0, (event.border
+                                                    - self.rect.bottom))
 
                     self.move(new_pos)
 
@@ -989,6 +993,26 @@ class ShootingRange(SubScreen):
             union = pg.Rect.union(self.rect, advanced_rect)
 
             return union.top < y < union.bottom
+
+    class Target(GameObj):
+        '''
+        Класс мишень
+        '''
+
+        def __init__(self, pos):
+            '''
+            Функция, инициализуриющая мишень
+            :param pos: словарь {x, y} с позицией центра пули
+            '''
+            self.color = COLORS.GREEN
+
+            r = random.randint(10, 60)
+            size = {"w": 2 * r, "h": 2 * r}
+            ref_pos = {"x": r, "y": r}
+
+            super().__init__(pos, size, ref_pos)
+            pg.draw.ellipse(self.sprite, self.color,
+                            self.sprite.get_rect())
 
     class Gun(GameObj):
         '''
@@ -1161,6 +1185,7 @@ class ShootingRange(SubScreen):
         self.manager = None
         self.name = Name(self)
         self.pool = []
+        self.target_numb = {"current": 0, "min": 2}
         super().__init__(pos, size, COLORS.GREY)
 
         gun = ShootingRange.Gun({"x": 50, "y": self.size["h"] - 50})
@@ -1173,6 +1198,19 @@ class ShootingRange(SubScreen):
         (проверка того, что все игровые оъекты находятся в пределах
          области)
         '''
+
+        while self.target_numb["current"] < self.target_numb["min"]:
+            new_pos = {
+                       "x": random.randint(int(self.size["w"] * 0.2),
+                                           int(self.size["w"] * 0.8)),
+                       "y": random.randint(int(self.size["h"] * 0.2),
+                                           int(self.size["h"] * 0.8)),
+                      }
+            new_target = ShootingRange.Target(new_pos)
+            add_event = pg.event.Event(ShootingRange.ADDOBJ,
+                                       {"target": new_target})
+            pg.event.post(add_event)
+            self.target_numb["current"] += 1
 
         for obj in self.pool:
             coll_flag = DIRECTION.NONE
