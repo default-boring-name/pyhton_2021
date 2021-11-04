@@ -876,31 +876,36 @@ class ShootingRange(SubScreen):
         стены, с которой столкнулся объект
         '''
 
-    class Bullet(GameObj):
+    class MovingGameObj(GameObj):
         '''
-        Класс пули для пушки
+        Класс движущегося игрового объекта
+        !Любой движущийся объект в игровой области должен!
+        !быть унаследован от данного класса!
         '''
 
-        def __init__(self, pos, vel):
+        def __init__(self, pos, size, ref_pos, vel, accel):
             '''
-            Функция, инициализуриющая пулю
-            :param pos: словарь {x, y} с позицией центра пули
-            :param vel: словарь {x, y} со скоростью центра пули
+            Функция, инициализирующая движущийся игровой объект
+            :param pos: словарь {x, y} с позицией движущегося
+                        игрового объекта
+                        (абсолютная позиция опорной точки)
+            :param size: словарь {w, h} с размерами движущегося
+                         игрового объекта (по ним будет создан спрайт)
+            :param ref_pos: словарь {x, y} с координатами опорной
+                            точки относительно левого вехнего угла
+                            спрайта
+            :param vel: словарь {x, y} с вектором скорости движущегося
+                        игрового объекта
+            :param accel: словарь {x, y} с вектором ускорения движущегося
+                          игрового объекта
             '''
             self.vel = dict(vel)
-            self.accel = {"x": 0, "y": 0.7}
-            self.color = COLORS.RED
-
-            size = {"w": 30, "h": 30}
-            ref_pos = {"x": 5, "y": 5}
+            self.accel = dict(accel)
             super().__init__(pos, size, ref_pos)
-
-            pg.draw.ellipse(self.sprite, self.color,
-                            self.sprite.get_rect())
 
         def idle(self):
             '''
-            Функия, описывающая движение пули
+            Функия, описывающая движение игрового объекта
             '''
             new_pos = {
                        "x": self.pos["x"] + self.vel["x"],
@@ -911,6 +916,78 @@ class ShootingRange(SubScreen):
                         "y": self.vel["y"] + self.accel["y"]
                        }
             self.move(new_pos)
+
+        def get_trace(self):
+            '''
+            Функция, возвращающая ожидаемую траекторию движущегося
+            игрового объекта
+            '''
+            advanced_rect = pg.Rect(self.rect)
+            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
+            trace = pg.Rect.union(self.rect, advanced_rect)
+
+            return trace
+
+        def collide_x(self, x):
+            '''
+            Функция, проверярющая пресекается ли движущийся
+            игровой объект с вертикальной прямой с
+            абсциссой равной х с учетом движения
+            :param x: абсцисса прямой, с которой надо проверить
+                      пересечение
+            '''
+
+            trace = self.get_trace()
+
+            return trace.left < x < trace.right
+
+        def collide_y(self, y):
+            '''
+            Функция, проверярющая пресекается ли движущийся
+            игровой объект с горизонтальной прямой с
+            ординатой равной y с учетом движения
+            :param y: ордината прямой, с которой надо проверить
+                      пересечение
+            '''
+
+            trace = self.get_trace()
+
+            return trace.top < y < trace.bottom
+
+        def collide_obj(self, other):
+            '''
+            Функция, проверярющая сталкивается ли движущийся
+            игровой объект с другим объектом
+            :param other: игровой объект с которым нужно проверить
+                          столкновение
+            '''
+            trace_self = self.get_trace()
+            if isinstance(other, ShootingRange.MovingGameObj):
+                trace_other = other.get_trace()
+                return trace_self.colliderect(trace_other)
+            else:
+                return trace_self.colliderect(other.rect)
+
+    class Bullet(MovingGameObj):
+        '''
+        Класс пули для пушки
+        '''
+
+        def __init__(self, pos, vel):
+            '''
+            Функция, инициализуриющая пулю
+            :param pos: словарь {x, y} с позицией центра пули
+            :param vel: словарь {x, y} со скоростью центра пули
+            '''
+            self.color = COLORS.RED
+
+            accel = {"x": 0, "y": 0.7}
+            size = {"w": 30, "h": 30}
+            ref_pos = {"x": 5, "y": 5}
+            super().__init__(pos, size, ref_pos, vel, accel)
+
+            pg.draw.ellipse(self.sprite, self.color,
+                            self.sprite.get_rect())
 
         def call(self, event):
             '''
@@ -966,37 +1043,9 @@ class ShootingRange(SubScreen):
 
             return log_msg
 
-        def collide_x(self, x):
-            '''
-            Функция, проверярющая пресекается ли пуля с вертикальной
-            прямой с абсциссой равной х с учетом движения
-            :param x: абсцисса прямой, с которой надо проверить
-                      пересечение
-            '''
-
-            advanced_rect = pg.Rect(self.rect)
-            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
-            union = pg.Rect.union(self.rect, advanced_rect)
-
-            return union.left < x < union.right
-
-        def collide_y(self, y):
-            '''
-            Функция, проверярющая пресекается ли пуля с горизонтальной
-            прямой с ординатой равной y с учетом движения
-            :param y: ордината прямой, с которой надо проверить
-                      пересечение
-            '''
-
-            advanced_rect = pg.Rect(self.rect)
-            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
-            union = pg.Rect.union(self.rect, advanced_rect)
-
-            return union.top < y < union.bottom
-
     class Target(GameObj):
         '''
-        Класс мишень
+        Класс мишени
         '''
 
         def __init__(self, pos):
