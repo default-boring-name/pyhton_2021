@@ -462,7 +462,7 @@ class Text(OnScreenObj):
         RIGHT = enum.auto()
         CENTRE = enum.auto()
 
-    def __init__(self, pos, size, font="Times New Roman",
+    def __init__(self, pos, font_size, font="Times New Roman",
                  justification=JUSTIFICATION.LEFT,
                  color=COLORS.BLACK, bg_color=COLORS.TRANSPARENT):
         '''
@@ -473,7 +473,7 @@ class Text(OnScreenObj):
                      позиция центра правой грани, если текста выравнен
                      по правой стороне;
                      позиция центра текста, если текст центрирован)
-        :param size: размер текста (шрифта)
+        :param font_size: размер текста (шрифта)
         :param justification: выравнивание из Text.JUSTIFICATION,
                               выравнивание текста, по умолчанию
                               текст выравнен слева
@@ -483,7 +483,7 @@ class Text(OnScreenObj):
         :param bg_color: цвет из COLORS, цвет заднего фона текста
                          по умолчанию цвет заднего фона прозрачный
         '''
-        self.font_size = size
+        self.font_size = font_size
         self.justification = justification
         self.font_color = color
         self.bg_color = bg_color
@@ -504,8 +504,13 @@ class Text(OnScreenObj):
         '''
 
         self.text = text
-        self.sprite = self.font_obj.render(self.text, True,
-                                           self.font_color, self.bg_color)
+        if self.bg_color == COLORS.TRANSPARENT:
+            self.sprite = self.font_obj.render(self.text, True,
+                                               self.font_color)
+        else:
+            self.sprite = self.font_obj.render(self.text, True,
+                                               self.font_color,
+                                               self.bg_color)
 
         size = {"w": self.sprite.get_rect().width,
                 "h": self.sprite.get_rect().height}
@@ -518,6 +523,136 @@ class Text(OnScreenObj):
             ref_pos["x"] = size["w"] // 2
 
         self.update_raw(size, ref_pos)
+
+
+class PopUpMsgGen:
+    '''
+    Класс, генератора всплывающих сообщений
+    '''
+
+    # События генератора всплыващих сообщений
+
+    SENDMESSAGE = pg.event.custom_type()
+    '''
+    Событие данного типа должно содержать
+    следующие атрибуты:
+        message - сообщение, которое нужно вывести на экран
+        time - время в тиках, на которое нужно отобразить сообщение
+        pos - положение сообщения на экране
+    '''
+
+    REMOVEMESSAGE = pg.event.custom_type()
+    '''
+    Событие данного типа должно содержать
+    следующие атрибуты:
+        target - ссылка на сообщение, которое
+                 необходимо удалить
+    '''
+
+    def __init__(self, font_size, font="Times New Roman",
+                 justification=Text.JUSTIFICATION.LEFT,
+                 color=COLORS.BLACK, bg_color=COLORS.TRANSPARENT):
+        '''
+        Функция инициализирующая объект текста
+        :param font_size: размер текста (шрифта)
+        :param justification: выравнивание из Text.JUSTIFICATION,
+                              выравнивание текста, по умолчанию
+                              текст выравнен слева
+        :param font: шрифт текста, по умолчанию шрифт "Times New Roman"
+        :param color: цвет из COLORS, цвет текста, по умолчанию
+                      цвет текста черный
+        :param bg_color: цвет из COLORS, цвет заднего фона текста
+                         по умолчанию цвет заднего фона прозрачный
+        '''
+        self.font_size = font_size
+        self.justification = justification
+        self.font_color = color
+        self.bg_color = bg_color
+        self.font_name = font
+        self.manager = None
+        self.screen = None
+        self.name = Name(self)
+
+    def call(self, event):
+        '''
+        Функция, описывающая реакцию генератора всплывающих сообщений
+        на полученное событие и возвращающая его лог в
+        формате словаря (или None, если событие не было обработано)
+        :param event: полученное событие, на которое генератор всплывающих
+                      сообщений должен прореагировать
+        '''
+        log_msg = None
+
+        if event.type == PopUpMsgGen.SENDMESSAGE:
+            log_msg = {
+                       "name": str(self),
+                       "status": "displayed message on screen",
+                       "message": event.message,
+                       "screen": str(self.screen)
+                      }
+
+            message = Text(event.pos, self.font_size, font=self.font_name,
+                           justification=self.justification,
+                           color=self.font_color, bg_color=self.bg_color)
+
+            message.write(event.message)
+            self.screen.add_obj(message)
+
+            remove_event_type = PopUpMsgGen.REMOVEMESSAGE
+            remove_event_attr = {"target": message}
+            remove_event = pg.event.Event(remove_event_type,
+                                          remove_event_attr)
+
+            timer_event_type = TimeManager.SETTIMER
+            timer_event_attr = {
+                                "owner": self,
+                                "time": event.time,
+                                "event": remove_event
+                               }
+            timer_event = pg.event.Event(timer_event_type,
+                                         timer_event_attr)
+            pg.event.post(timer_event)
+
+        elif event.type == PopUpMsgGen.REMOVEMESSAGE:
+            log_msg = {
+                       "name": str(self),
+                       "status": "removed message from screen",
+                       "message": event.target.text,
+                       "screen": str(self.screen)
+                      }
+            self.screen.remove_obj(event.target)
+
+        return log_msg
+
+    def idle(self):
+        pass
+
+    def set_screen(self, screen):
+        '''
+        Функция, устанавливающая связь с экраном для
+        отрисовки
+        :param screen: объект Screen, с которым
+                              нужно установить связь
+        '''
+
+        self.screen = screen
+
+    def set_manager(self, event_manager):
+        '''
+        Функция, устанавливающая связь с обработчиком
+        событий
+        :param event_manager: объект EventManager, с которым
+                              нужно установить связь
+        '''
+
+        self.manager = event_manager
+
+    def __str__(self):
+        '''
+        Функция, привязывающая __str__ к имени объекта
+        '''
+
+        return self.name.log_name()
 
 
 class ScoreLine(Text):
@@ -952,6 +1087,8 @@ class SubScreen(Screen):
         Функция рисующая подэкран на предустановленном экране
         '''
         Screen.update(self)
+        pg.draw.rect(self.surf, COLORS.BLACK,
+                     self.surf.get_rect(), 2)
         self.screen.get_surface().blit(self.surf,
                                        (self.pos["x"], self.pos["y"]))
 
@@ -1126,6 +1263,8 @@ class ShootingRange(SubScreen):
 
             pg.draw.ellipse(self.sprite, self.color,
                             self.sprite.get_rect())
+            pg.draw.ellipse(self.sprite, COLORS.BLACK,
+                            self.sprite.get_rect(), 2)
 
         def call(self, event):
             '''
@@ -1246,6 +1385,8 @@ class ShootingRange(SubScreen):
             super().__init__(pos, size, ref_pos)
             pg.draw.ellipse(self.sprite, self.color,
                             self.sprite.get_rect())
+            pg.draw.ellipse(self.sprite, COLORS.BLACK,
+                            self.sprite.get_rect(), 2)
 
         def call(self, event):
             '''
@@ -1455,6 +1596,7 @@ class ShootingRange(SubScreen):
         self.manager = None
         self.name = Name(self)
         self.pool = []
+        self.wasted_bullets = 0
         self.target_numb = {"current": 0, "min": 2}
         super().__init__(pos, size, COLORS.GREY)
 
@@ -1533,6 +1675,7 @@ class ShootingRange(SubScreen):
                       обработать
         '''
         log_msg = None
+
         if event.type == ShootingRange.ADDOBJ:
             if event.target not in self.pool:
                 log_msg = {
@@ -1540,6 +1683,10 @@ class ShootingRange(SubScreen):
                            "status": "added a new game object to pool",
                            "obj": str(event.target)
                           }
+
+                if isinstance(event.target, ShootingRange.Bullet):
+                    self.wasted_bullets += 1
+
                 self.pool.append(event.target)
                 self.add_obj(event.target)
                 add_event = pg.event.Event(EventManager.ADDOBJ,
@@ -1553,8 +1700,26 @@ class ShootingRange(SubScreen):
                            "status": "removed a new game object to pool",
                            "obj": str(event.target)
                           }
+
                 if isinstance(event.target, ShootingRange.Target):
+                    msg_event_type = PopUpMsgGen.SENDMESSAGE
+                    msg_pos = {"x": WIN_SIZE["w"] / 2,
+                               "y": 200}
+
+                    msg_text = "".join(("YOU SHOT A TARGET AND SPENT ",
+                                        f"{self.wasted_bullets} BULLETS"))
+                    msg_event_attr = {
+                                      "message": msg_text,
+                                      "time": 40,
+                                      "pos": msg_pos
+                                     }
+                    msg_event = pg.event.Event(msg_event_type,
+                                               msg_event_attr)
+                    pg.event.post(msg_event)
+
                     self.target_numb["current"] -= 1
+                    self.wasted_bullets = 0
+
                 self.pool.remove(event.target)
                 self.remove_obj(event.target)
                 remove_event = pg.event.Event(EventManager.REMOVEOBJ,
@@ -1590,12 +1755,16 @@ manager = EventManager()
 clock = TimeManager(FPS)
 manager.add_obj(clock)
 
+msg_gen = PopUpMsgGen(25, justification=Text.JUSTIFICATION.CENTRE)
+msg_gen.set_screen(screen)
+manager.add_obj(msg_gen)
+
 sh_range = ShootingRange({"x": 50, "y": 75},
                          {"w": 700, "h": 500})
 screen.add_obj(sh_range)
 manager.add_obj(sh_range)
 
-scores = ScoreLine({"x": 200, "y": 25}, 32, digit_number=7)
+scores = ScoreLine({"x": 200, "y": 40}, 32, digit_number=7)
 screen.add_obj(scores)
 manager.add_obj(scores)
 
