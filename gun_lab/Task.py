@@ -70,6 +70,88 @@ class Name:
         return self.type_ + ":" + str(self.id_number)
 
 
+class TimeManager:
+    '''
+    Класс менеджера времени
+    '''
+
+    # События менеджера события
+
+    SETTIMER = pg.event.custom_type()
+    '''
+    Событие данного типа должно иметь
+    следующие атрибуты:
+        owner - ссылка на объект, устанавивший таймер
+        time - время в тиках, на которое нужно установить таймер
+        event - событие, которое будет вызвано по истечению таймера
+    '''
+
+    def __init__(self, fps):
+        '''
+        Функция инициализирующая менеджера времени
+        '''
+        self.fps = fps
+        self.manager = None
+        self.name = Name(self)
+        self.timers = []
+        self.clock = pg.time.Clock()
+
+    def idle(self):
+        '''
+        Функция, описывающая дефолтное поведение менеджера времени
+        (отсчет времени, проверка таймеров и т.д.)
+        '''
+        self.clock.tick(self.fps)
+
+        zero_timers = []
+        for timer in self.timers:
+            timer.time -= 1
+            if timer.time == 0:
+                pg.event.post(timer.event)
+                zero_timers.append(timer)
+
+        for timer in zero_timers:
+            self.timers.remove(timer)
+
+    def call(self, event):
+        '''
+        Функция, описывающая реакцию менеджера времени на полученное событие
+        и возвращающая его лог в формате словаря (или None, если событие
+        не было обработано)
+        :param event: полученное событие, на которое пуля
+                      должна прореагировать
+        '''
+        log_msg = None
+
+        if event.type == TimeManager.SETTIMER:
+            self.timers.append(event)
+            log_msg = {
+                       "name": str(self),
+                       "status": "was requested to set timer",
+                       "timer owner": str(event.owner),
+                       "time": str(event.time)
+                      }
+
+        return log_msg
+
+    def set_manager(self, event_manager):
+        '''
+        Функция, устанавливающая связь с обработчиком
+        событий
+        :param event_manager: объект EventManager, с которым
+                              нужно установить связь
+        '''
+
+        self.manager = event_manager
+
+    def __str__(self):
+        '''
+        Функция, привязывающая __str__ к имени объекта
+        '''
+
+        return self.name.log_name()
+
+
 class OnScreenObj:
     '''
     Класс игровых объектов, которые могут быть
@@ -1078,9 +1160,10 @@ class ShootingRange(SubScreen):
                                    "status": "Collided with target",
                                    "target": str(obj)
                                   }
-                        event_type = ShootingRange.REMOVEOBJ
-                        remove_event = pg.event.Event(event_type,
-                                                      {"target": self})
+                        remove_event_type = ShootingRange.REMOVEOBJ
+                        remove_event_attr = {"target": self}
+                        remove_event = pg.event.Event(remove_event_type,
+                                                      remove_event_attr)
                         pg.event.post(remove_event)
 
             return log_msg
@@ -1099,7 +1182,6 @@ class ShootingRange(SubScreen):
                 self.vel["x"] *= -0.5
                 if abs(self.vel["x"]) < 3:
                     self.vel["x"] = 0
-                    self.accel["x"] = 0
 
                 if edge["dir"] & DIRECTION.LEFT:
 
@@ -1115,13 +1197,30 @@ class ShootingRange(SubScreen):
                 self.vel["y"] *= -0.5
                 if abs(self.vel["y"]) < 3:
                     self.vel["y"] = 0
-                    self.accel["y"] = 0
 
                 if edge["dir"] & DIRECTION.UP:
                     new_pos["y"] += max(0, (edge["pos"]
                                             - self.rect.top))
 
                 if edge["dir"] & DIRECTION.DOWN:
+                    if self.vel["y"] == 0:
+                        self.accel["y"] = 0
+
+                        remove_event_type = ShootingRange.REMOVEOBJ
+                        remove_event_attr = {"target": self}
+                        remove_event = pg.event.Event(remove_event_type,
+                                                      remove_event_attr)
+
+                        timer_event_type = TimeManager.SETTIMER
+                        timer_event_attr = {
+                                            "owner": self,
+                                            "time": 15,
+                                            "event": remove_event
+                                           }
+                        timer_event = pg.event.Event(timer_event_type,
+                                                     timer_event_attr)
+                        pg.event.post(timer_event)
+
                     new_pos["y"] += min(0, (edge["pos"]
                                             - self.rect.bottom))
 
@@ -1487,7 +1586,9 @@ class ShootingRange(SubScreen):
 
 screen = MainScreen(WIN_SIZE)
 manager = EventManager()
-clock = pg.time.Clock()
+
+clock = TimeManager(FPS)
+manager.add_obj(clock)
 
 sh_range = ShootingRange({"x": 50, "y": 75},
                          {"w": 700, "h": 500})
@@ -1500,6 +1601,5 @@ manager.add_obj(scores)
 
 while manager.run():
     screen.update()
-    clock.tick(FPS)
 
 pg.quit()
