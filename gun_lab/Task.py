@@ -186,6 +186,23 @@ class OnScreenObj:
                              self.pos["y"] - self.ref_pos["y"]),
                             (self.size["w"], self.size["h"]))
 
+    def scale(self, scale, adjust_ref={"x": True, "y": True}):
+        '''
+        Функция, изменяющая размеры игрового объекта.
+        :param scale: словарь {w, h} с новыми размерами игрового
+                      объекта !В ДОЛЯХ! (спрайт объекта
+                      будет отмаштабирован)
+        :adjust_ref: словарь {x, y} с флагами, показывающими надо ли
+                     отмаштабировать положение опорной точки относительно
+                     спрайта, по умолчанияю имеет значение {True, True}.
+                     !Если опорная точка окажется за пределами спрайта,
+                     то маштабирование будет произведено автоматически!
+
+        '''
+        size = {"w": self.scaled_size["w"] * scale["w"],
+                "h": self.scaled_size["h"] * scale["h"]}
+        self.resize(size, adjust_ref)
+
     def rotate(self, angle):
         '''
         Функция, поворачивающая игровой объект на некоторый угол
@@ -314,6 +331,37 @@ class OnScreenObj:
         result = self.rect.top < y and y < self.rect.bottom
         return result
 
+    def update_raw(self, size=None, ref_pos=None):
+        '''
+        Функция, обновлящая raw размеры и raw относительное положение
+        опорной точки
+        :param size: словарь {w, h} с новыми raw размерами игрового
+                     объекта
+        :param ref_pos: словарь {x, y} с новыми raw координатами опорной
+                        точки относительно левого вехнего угла
+                        спрайта
+        '''
+        if size is None:
+            size = dict(self.raw_size)
+        if ref_pos is None:
+            ref_pos = dict(self.raw_ref_pos)
+
+        scale = {"w": self.scaled_size["w"] / self.raw_size["w"],
+                 "h": self.scaled_size["h"] / self.raw_size["h"]}
+        angle = self.angle
+
+        self.resize(self.raw_size)
+        self.rotate(-angle)
+
+        self.raw_size = dict(size)
+        self.raw_ref_pos = dict(ref_pos)
+
+        scaled_size = {"w": size["w"] * scale["w"],
+                       "h": size["h"] * scale["h"]}
+
+        self.resize(scaled_size)
+        self.rotate(angle)
+
     def __str__(self):
         '''
         Функция, привязывающая __str__ к имени объекта
@@ -359,12 +407,12 @@ class Text(OnScreenObj):
         self.bg_color = bg_color
         self.font_name = font
 
-        self.text = ""
+        self.text = " "
         self.font_obj = pg.font.SysFont(self.font_name, self.font_size)
 
         ref_pos = {"x": 0, "y": self.font_size // 2}
         super().__init__(pos,
-                         {"w": 0, "h": self.font_size},
+                         {"w": 1, "h": self.font_size},
                          ref_pos)
 
     def write(self, text):
@@ -377,17 +425,17 @@ class Text(OnScreenObj):
         self.sprite = self.font_obj.render(self.text, True,
                                            self.font_color, self.bg_color)
 
-        self.size["w"] = self.sprite.get_rect().width
+        size = {"w": self.sprite.get_rect().width,
+                "h": self.sprite.get_rect().height}
 
+        ref_pos = {"x": 0, "y": size["h"] // 2}
         if self.justification == Text.JUSTIFICATION.RIGHT:
-            self.ref_pos["x"] = self.size["w"]
+            ref_pos["x"] = size["w"]
 
         elif self.justification == Text.JUSTIFICATION.CENTRE:
-            self.ref_pos["x"] = self.size["w"] // 2
+            ref_pos["x"] = size["w"] // 2
 
-        self.rect = pg.Rect((self.pos["x"] - self.ref_pos["x"],
-                             self.pos["y"] - self.ref_pos["y"]),
-                            (self.size["w"], self.size["h"]))
+        self.update_raw(size, ref_pos)
 
 
 class ScoreLine(Text):
@@ -1090,8 +1138,9 @@ class ShootingRange(SubScreen):
             :param pos: словарь {x, y} с позицией центра пули
             '''
             self.color = COLORS.GREEN
+            self.reward = 50
 
-            r = random.randint(10, 60)
+            r = random.randint(20, 40)
             size = {"w": 2 * r, "h": 2 * r}
             ref_pos = {"x": r, "y": r}
 
@@ -1122,10 +1171,17 @@ class ShootingRange(SubScreen):
                                    "status": "was shot by bullet",
                                    "bullet": str(obj)
                                   }
-                        event_type = ShootingRange.REMOVEOBJ
-                        remove_event = pg.event.Event(event_type,
-                                                      {"target": self})
+                        remove_event_type = ShootingRange.REMOVEOBJ
+                        remove_event_attr = {"target": self}
+                        remove_event = pg.event.Event(remove_event_type,
+                                                      remove_event_attr)
                         pg.event.post(remove_event)
+
+                        score_event_type = ScoreLine.INCREASE
+                        score_event_attr = {"increment": self.reward}
+                        score_event = pg.event.Event(score_event_type,
+                                                     score_event_attr)
+                        pg.event.post(score_event)
 
             return log_msg
 
@@ -1377,8 +1433,14 @@ class ShootingRange(SubScreen):
         :param event: объект события, которое необходимо
                       обработать
         '''
+        log_msg = None
         if event.type == ShootingRange.ADDOBJ:
             if event.target not in self.pool:
+                log_msg = {
+                           "name": str(self),
+                           "status": "added a new game object to pool",
+                           "obj": str(event.target)
+                          }
                 self.pool.append(event.target)
                 self.add_obj(event.target)
                 add_event = pg.event.Event(EventManager.ADDOBJ,
@@ -1387,11 +1449,20 @@ class ShootingRange(SubScreen):
 
         elif event.type == ShootingRange.REMOVEOBJ:
             if event.target in self.pool:
+                log_msg = {
+                           "name": str(self),
+                           "status": "removed a new game object to pool",
+                           "obj": str(event.target)
+                          }
+                if isinstance(event.target, ShootingRange.Target):
+                    self.target_numb["current"] -= 1
                 self.pool.remove(event.target)
                 self.remove_obj(event.target)
                 remove_event = pg.event.Event(EventManager.REMOVEOBJ,
                                               {"target": event.target})
                 pg.event.post(remove_event)
+
+        return log_msg
 
     def set_manager(self, event_manager):
         '''
@@ -1422,6 +1493,10 @@ sh_range = ShootingRange({"x": 50, "y": 75},
                          {"w": 700, "h": 500})
 screen.add_obj(sh_range)
 manager.add_obj(sh_range)
+
+scores = ScoreLine({"x": 200, "y": 25}, 32, digit_number=7)
+screen.add_obj(scores)
+manager.add_obj(scores)
 
 while manager.run():
     screen.update()
