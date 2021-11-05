@@ -872,8 +872,15 @@ class ShootingRange(SubScreen):
         События данного типа должны иметь
         атрибут target, указывающий на объект столкнувшийся
         со стеной, и атрибут направления dir, являющийся
-        флагом DIRECTION, и атрибут border содержащий координаты
+        флагом DIRECTION, и атрибут pos содержащий координаты
         стены, с которой столкнулся объект
+        '''
+
+        OBJCOLLISION = pg.event.custom_type()
+        '''
+        События данного типа должны иметь
+        атрибут targets - кортеж с ссылками на два
+        столкнувшихся объекта
         '''
 
     class MovingGameObj(GameObj):
@@ -923,7 +930,8 @@ class ShootingRange(SubScreen):
             игрового объекта
             '''
             advanced_rect = pg.Rect(self.rect)
-            advanced_rect.move_ip(2 * self.vel["x"], 2 * self.vel["y"])
+            advanced_rect.move_ip(int(1.5 * self.vel["x"]),
+                                  int(1.5 * self.vel["y"]))
             trace = pg.Rect.union(self.rect, advanced_rect)
 
             return trace
@@ -1002,46 +1010,74 @@ class ShootingRange(SubScreen):
                 if event.target is self:
                     direction = event.dir & ~ DIRECTION.NONE
                     log_msg = {
-                               "name": repr(self),
+                               "name": str(self),
                                "status": "Collided with wall",
                                "direction": direction.name
                               }
+                    self.reflect({"dir": direction,
+                                  "pos": event.pos})
 
-                    new_pos = dict(self.pos)
-                    if (direction & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+            elif event.type == ShootingRange.GameObj.OBJCOLLISION:
+                targets = list(event.targets)
+                if self in targets:
 
-                        self.vel["x"] *= -0.5
-                        if abs(self.vel["x"]) < 3:
-                            self.vel["x"] = 0
-                            self.accel["x"] = 0
+                    targets.remove(self)
+                    obj = targets[0]
 
-                        if direction & DIRECTION.LEFT:
-
-                            new_pos["x"] += max(0, (event.border
-                                                    - self.rect.left))
-
-                        if direction & DIRECTION.RIGHT:
-                            new_pos["x"] += min(0, (event.border
-                                                    - self.rect.right))
-
-                    if (direction & (DIRECTION.UP | DIRECTION.DOWN)):
-
-                        self.vel["y"] *= -0.5
-                        if abs(self.vel["y"]) < 3:
-                            self.vel["y"] = 0
-                            self.accel["y"] = 0
-
-                        if direction & DIRECTION.UP:
-                            new_pos["y"] += max(0, (event.border
-                                                    - self.rect.top))
-
-                        if direction & DIRECTION.DOWN:
-                            new_pos["y"] += min(0, (event.border
-                                                    - self.rect.bottom))
-
-                    self.move(new_pos)
+                    if isinstance(obj, ShootingRange.Target):
+                        log_msg = {
+                                   "name": str(self),
+                                   "status": "Collided with target",
+                                   "target": str(obj)
+                                  }
+                        event_type = ShootingRange.REMOVEOBJ
+                        remove_event = pg.event.Event(event_type,
+                                                      {"target": self})
+                        pg.event.post(remove_event)
 
             return log_msg
+
+        def reflect(self, edge):
+            '''
+            Функция, реализующая отражение пули при столкновении
+            :param edge: словарь вида {dir, pos} c направлением
+                         столкновения (флаг DIRECTION),
+                         с положением объекта, с которым
+                         столкнулась пуля
+            '''
+            new_pos = dict(self.pos)
+            if (edge["dir"] & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+
+                self.vel["x"] *= -0.5
+                if abs(self.vel["x"]) < 3:
+                    self.vel["x"] = 0
+                    self.accel["x"] = 0
+
+                if edge["dir"] & DIRECTION.LEFT:
+
+                    new_pos["x"] += max(0, (edge["pos"]
+                                            - self.rect.left))
+
+                if edge["dir"] & DIRECTION.RIGHT:
+                    new_pos["x"] += min(0, (edge["pos"]
+                                            - self.rect.right))
+
+            if (edge["dir"] & (DIRECTION.UP | DIRECTION.DOWN)):
+
+                self.vel["y"] *= -0.5
+                if abs(self.vel["y"]) < 3:
+                    self.vel["y"] = 0
+                    self.accel["y"] = 0
+
+                if edge["dir"] & DIRECTION.UP:
+                    new_pos["y"] += max(0, (edge["pos"]
+                                            - self.rect.top))
+
+                if edge["dir"] & DIRECTION.DOWN:
+                    new_pos["y"] += min(0, (edge["pos"]
+                                            - self.rect.bottom))
+
+            self.move(new_pos)
 
     class Target(GameObj):
         '''
@@ -1062,6 +1098,36 @@ class ShootingRange(SubScreen):
             super().__init__(pos, size, ref_pos)
             pg.draw.ellipse(self.sprite, self.color,
                             self.sprite.get_rect())
+
+        def call(self, event):
+            '''
+            Функция, описывающая реакцию мишени на полученное событие
+            и возвращающая его лог в формате словаря (или None, если событие
+            не было обработано)
+            :param event: полученное событие, на которое мишень
+                          должна прореагировать
+            '''
+            log_msg = None
+            if event.type == ShootingRange.GameObj.OBJCOLLISION:
+
+                targets = list(event.targets)
+                if self in targets:
+
+                    targets.remove(self)
+                    obj = targets[0]
+
+                    if isinstance(obj, ShootingRange.Bullet):
+                        log_msg = {
+                                   "name": str(self),
+                                   "status": "was shot by bullet",
+                                   "bullet": str(obj)
+                                  }
+                        event_type = ShootingRange.REMOVEOBJ
+                        remove_event = pg.event.Event(event_type,
+                                                      {"target": self})
+                        pg.event.post(remove_event)
+
+            return log_msg
 
     class Gun(GameObj):
         '''
@@ -1218,7 +1284,7 @@ class ShootingRange(SubScreen):
             Функция, описывающая дефолтное поведения пушки
             '''
             if self.aiming and self.power <= 100:
-                self.power += 0.5
+                self.power += 0.8
                 new_size = {"w": self.raw_size["w"] + self.power - 10,
                             "h": self.raw_size["h"]}
                 adjust = {"x": False, "y": True}
@@ -1263,31 +1329,45 @@ class ShootingRange(SubScreen):
 
         for obj in self.pool:
             coll_flag = DIRECTION.NONE
-            border = None
+            pos = None
 
             if obj.collide_x(0):
                 coll_flag |= DIRECTION.LEFT
-                border = 0
+                pos = 0
 
             if obj.collide_x(self.size["w"]):
                 coll_flag |= DIRECTION.RIGHT
-                border = self.size["w"]
+                pos = self.size["w"]
 
             if obj.collide_y(0):
                 coll_flag |= DIRECTION.UP
-                border = 0
+                pos = 0
 
             if obj.collide_y(self.size["h"]):
                 coll_flag |= DIRECTION.DOWN
-                border = self.size["h"]
+                pos = self.size["h"]
 
             if coll_flag & ~DIRECTION.NONE:
                 event_type = ShootingRange.GameObj.WALLCOLLISION
                 coll_event = pg.event.Event(event_type,
                                             {"target": obj,
                                              "dir": coll_flag,
-                                             "border": border})
+                                             "pos": pos})
                 pg.event.post(coll_event)
+
+        for i in range(len(self.pool) - 1):
+            obj_i = self.pool[i]
+            for k in range(i + 1, len(self.pool)):
+                obj_k = self.pool[k]
+
+                if (obj_i.collide_obj(obj_k)
+                        or obj_k.collide_obj(obj_i)):
+
+                    event_type = ShootingRange.GameObj.OBJCOLLISION
+                    targets = (obj_i, obj_k)
+                    coll_event = pg.event.Event(event_type,
+                                                {"targets": targets})
+                    pg.event.post(coll_event)
 
     def call(self, event):
         '''
@@ -1298,11 +1378,20 @@ class ShootingRange(SubScreen):
                       обработать
         '''
         if event.type == ShootingRange.ADDOBJ:
-            self.pool.append(event.target)
-            self.add_obj(event.target)
-            add_event = pg.event.Event(EventManager.ADDOBJ,
-                                       {"target": event.target})
-            pg.event.post(add_event)
+            if event.target not in self.pool:
+                self.pool.append(event.target)
+                self.add_obj(event.target)
+                add_event = pg.event.Event(EventManager.ADDOBJ,
+                                           {"target": event.target})
+                pg.event.post(add_event)
+
+        elif event.type == ShootingRange.REMOVEOBJ:
+            if event.target in self.pool:
+                self.pool.remove(event.target)
+                self.remove_obj(event.target)
+                remove_event = pg.event.Event(EventManager.REMOVEOBJ,
+                                              {"target": event.target})
+                pg.event.post(remove_event)
 
     def set_manager(self, event_manager):
         '''
