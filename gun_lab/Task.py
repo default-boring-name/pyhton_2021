@@ -1365,28 +1365,29 @@ class ShootingRange(SubScreen):
 
             self.move(new_pos)
 
-    class Target(GameObj):
+    class Target(MovingGameObj):
         '''
         Класс мишени
         '''
 
-        def __init__(self, pos):
+        def __init__(self, pos, size, ref_pos, vel, accel, reward):
             '''
-            Функция, инициализуриющая мишень
-            :param pos: словарь {x, y} с позицией центра пули
+            Функция, инициализирующая мишень
+            :param pos: словарь {x, y} с позицией мишени
+                        (абсолютная позиция опорной точки)
+            :param size: словарь {w, h} с размерами мишени
+                         (по ним будет создан спрайт)
+            :param ref_pos: словарь {x, y} с координатами опорной
+                            точки относительно левого вехнего угла
+                            спрайта
+            :param vel: словарь {x, y} с вектором скорости мишени
+            :param accel: словарь {x, y} с вектором ускорения мишени
+            :param reward: кол-во очков, получаемое за попадания в
+                           мишень
             '''
-            self.color = COLORS.GREEN
-            self.reward = 50
+            self.reward = reward
 
-            r = random.randint(20, 40)
-            size = {"w": 2 * r, "h": 2 * r}
-            ref_pos = {"x": r, "y": r}
-
-            super().__init__(pos, size, ref_pos)
-            pg.draw.ellipse(self.sprite, self.color,
-                            self.sprite.get_rect())
-            pg.draw.ellipse(self.sprite, COLORS.BLACK,
-                            self.sprite.get_rect(), 2)
+            super().__init__(pos, size, ref_pos, vel, accel)
 
         def call(self, event):
             '''
@@ -1398,7 +1399,6 @@ class ShootingRange(SubScreen):
             '''
             log_msg = None
             if event.type == ShootingRange.GameObj.OBJCOLLISION:
-
                 targets = list(event.targets)
                 if self in targets:
 
@@ -1423,7 +1423,110 @@ class ShootingRange(SubScreen):
                                                      score_event_attr)
                         pg.event.post(score_event)
 
+            elif event.type == ShootingRange.GameObj.WALLCOLLISION:
+                if event.target is self:
+                    direction = event.dir & ~ DIRECTION.NONE
+                    log_msg = {
+                               "name": str(self),
+                               "status": "Collided with wall",
+                               "direction": direction.name
+                              }
+                    self.reflect({"dir": direction,
+                                  "pos": event.pos})
+
             return log_msg
+
+        def reflect(self, edge):
+            '''
+            Функция, реализующая отражение пули при столкновении
+            :param edge: словарь вида {dir, pos} c направлением
+                         столкновения (флаг DIRECTION),
+                         с положением объекта, с которым
+                         столкнулась пуля
+            '''
+            new_pos = dict(self.pos)
+            if (edge["dir"] & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+                self.vel["x"] *= -1
+
+                if edge["dir"] & DIRECTION.LEFT:
+
+                    new_pos["x"] += max(0, (edge["pos"]
+                                            - self.rect.left))
+
+                if edge["dir"] & DIRECTION.RIGHT:
+                    new_pos["x"] += min(0, (edge["pos"]
+                                            - self.rect.right))
+
+            if (edge["dir"] & (DIRECTION.UP | DIRECTION.DOWN)):
+                self.vel["y"] *= -1
+
+                if edge["dir"] & DIRECTION.UP:
+                    new_pos["y"] += max(0, (edge["pos"]
+                                            - self.rect.top))
+
+                if edge["dir"] & DIRECTION.DOWN:
+
+                    new_pos["y"] += min(0, (edge["pos"]
+                                            - self.rect.bottom))
+
+            self.move(new_pos)
+
+    class StaticTarget(Target):
+        '''
+        Класс статичной мишени
+        '''
+
+        def __init__(self, pos):
+            '''
+            Функция, инициализирующая статичную мишень
+            :param pos: словарь {x, y} с позицией центра мишени
+            '''
+            vel = {"x": 0, "y": 0}
+            accel = {"x": 0, "y": 0}
+            reward = 50
+            r = random.randint(10, 15)
+            size = {"w": 2 * r, "h": 2 * r}
+            ref_pos = {"x": r, "y": r}
+
+            super().__init__(pos, size, ref_pos,
+                             vel, accel, reward)
+
+            pg.draw.ellipse(self.sprite, COLORS.GREEN,
+                            self.sprite.get_rect())
+            pg.draw.ellipse(self.sprite, COLORS.BLACK,
+                            self.sprite.get_rect(), 2)
+
+    class LinearTarget(Target):
+        '''
+        Класс статичной мишени
+        '''
+
+        def __init__(self, pos):
+            '''
+            Функция, инициализирующая статичную мишень
+            :param pos: словарь {x, y} с позицией центра мишени
+            '''
+
+            vel_r = random.randint(5, 10)
+            vel_phi = random.uniform(-math.pi, math.pi)
+            vel = {
+                   "x": vel_r * math.cos(vel_phi),
+                   "y": vel_r * math.sin(vel_phi)
+                  }
+            accel = {"x": 0, "y": 0}
+
+            reward = 75
+            r = random.randint(10, 20)
+            size = {"w": 2 * r, "h": 2 * r}
+            ref_pos = {"x": r, "y": r}
+
+            super().__init__(pos, size, ref_pos,
+                             vel, accel, reward)
+
+            pg.draw.ellipse(self.sprite, COLORS.MAGENTA,
+                            self.sprite.get_rect())
+            pg.draw.ellipse(self.sprite, COLORS.BLACK,
+                            self.sprite.get_rect(), 2)
 
     class Gun(GameObj):
         '''
@@ -1586,6 +1689,8 @@ class ShootingRange(SubScreen):
                 adjust = {"x": False, "y": True}
                 self.resize(new_size, adjust)
 
+    target_types = (StaticTarget, LinearTarget)
+
     def __init__(self, pos, size):
         '''
         Функция инициализирующая активную игровую область
@@ -1618,7 +1723,7 @@ class ShootingRange(SubScreen):
                        "y": random.randint(int(self.size["h"] * 0.2),
                                            int(self.size["h"] * 0.8)),
                       }
-            new_target = ShootingRange.Target(new_pos)
+            new_target = random.choice(ShootingRange.target_types)(new_pos)
             add_event = pg.event.Event(ShootingRange.ADDOBJ,
                                        {"target": new_target})
             pg.event.post(add_event)
