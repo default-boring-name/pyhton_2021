@@ -1597,7 +1597,7 @@ class ShootingRange(SubScreen):
                     }
             self.accel = accel
 
-    class Gun(GameObj):
+    class Gun(MovingGameObj):
         '''
         Класс пушки
         '''
@@ -1609,10 +1609,13 @@ class ShootingRange(SubScreen):
             '''
             self.aiming = False
             self.power = 10
+            self.move_dir = DIRECTION.NONE
             size = {"w": 40, "h": 10}
             ref_pos = {"x": 5, "y": 5}
+            vel = {"x": 0, "y": 0}
+            accel = {"x": 0, "y": 0}
 
-            super().__init__(pos, size, ref_pos)
+            super().__init__(pos, size, ref_pos, vel, accel)
             pg.draw.rect(self.sprite, COLORS.BLACK, self.sprite.get_rect())
 
         def call(self, event):
@@ -1629,13 +1632,80 @@ class ShootingRange(SubScreen):
                 mouse_pos = {"x": event.pos[0], "y": event.pos[1]}
                 log_msg = self.rotate_shaft(mouse_pos)
 
-            if event.type == pg.MOUSEBUTTONDOWN:
+            elif event.type == pg.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     log_msg = self.start_aiming()
 
-            if event.type == pg.MOUSEBUTTONUP:
+            elif event.type == pg.MOUSEBUTTONUP:
                 if event.button == 1:
                     log_msg = self.fire()
+
+            elif event.type == ShootingRange.GameObj.WALLCOLLISION:
+                if event.target is self:
+                    direction = event.dir & ~ DIRECTION.NONE
+                    log_msg = {
+                               "name": str(self),
+                               "status": "Collided with wall",
+                               "direction": direction.name
+                              }
+                    self.reflect({"dir": direction,
+                                  "pos": event.pos})
+
+            elif event.type == pg.KEYDOWN:
+                if event.key in (pg.K_a, pg.K_d):
+                    log_msg = self.start_moving(event.key)
+
+            elif event.type == pg.KEYUP:
+                if event.key in (pg.K_a, pg.K_d):
+                    log_msg = self.stop_moving(event.key)
+
+            return log_msg
+
+        def start_moving(self, key):
+            '''
+            Функция, определяющая направление начала движения пушки
+            в зависимости от нажатой клавиши
+            :param key: key_code нажатой клавиши
+            '''
+            log_msg = None
+
+            if key == pg.K_a:
+                log_msg = {
+                           "name": str(self),
+                           "status": "started moving to the left"
+                          }
+                self.move_dir |= DIRECTION.LEFT
+
+            elif key == pg.K_d:
+                self.move_dir |= DIRECTION.RIGHT
+                log_msg = {
+                           "name": str(self),
+                           "status": "started moving to the right"
+                          }
+
+            return log_msg
+
+        def stop_moving(self, key):
+            '''
+            Функция, определяющая направление остановки движения пушки
+            в зависимости от нажатой клавиши
+            :param key: key_code нажатой клавиши
+            '''
+            log_msg = None
+
+            if key == pg.K_a:
+                log_msg = {
+                           "name": str(self),
+                           "status": "stopped moving to the left"
+                          }
+                self.move_dir ^= DIRECTION.LEFT
+
+            elif key == pg.K_d:
+                log_msg = {
+                           "name": str(self),
+                           "status": "stopped moving to the right"
+                          }
+                self.move_dir ^= DIRECTION.RIGHT
 
             return log_msg
 
@@ -1751,12 +1821,43 @@ class ShootingRange(SubScreen):
             '''
             Функция, описывающая дефолтное поведения пушки
             '''
-            if self.aiming and self.power <= 100:
+            super().idle()
+            self.vel = {"x": 0, "y": 0}
+
+            if self.move_dir & DIRECTION.LEFT:
+                self.vel["x"] -= 3
+
+            if self.move_dir & DIRECTION.RIGHT:
+                self.vel["x"] += 3
+
+            if self.aiming and self.power <= 50:
                 self.power += 0.8
                 new_size = {"w": self.raw_size["w"] + self.power - 10,
                             "h": self.raw_size["h"]}
                 adjust = {"x": False, "y": True}
                 self.resize(new_size, adjust)
+
+        def reflect(self, edge):
+            '''
+            Функция, реализующая отражение пушки  при столкновении
+            :param edge: словарь вида {dir, pos} c направлением
+                         столкновения (флаг DIRECTION),
+                         с положением объекта, с которым
+                         столкнулась пуля
+            '''
+            new_pos = dict(self.pos)
+            if (edge["dir"] & (DIRECTION.LEFT | DIRECTION.RIGHT)):
+                self.vel["x"] *= -2
+
+                if edge["dir"] & DIRECTION.LEFT:
+
+                    new_pos["x"] += max(0, (edge["pos"]
+                                            - self.rect.left))
+
+                if edge["dir"] & DIRECTION.RIGHT:
+                    new_pos["x"] += min(0, (edge["pos"]
+                                            - self.rect.right))
+            self.move(new_pos)
 
     target_types = (StaticTarget, LinearTarget, ParabolicTarget)
 
@@ -1771,7 +1872,7 @@ class ShootingRange(SubScreen):
         self.name = Name(self)
         self.pool = []
         self.wasted_bullets = 0
-        self.target_numb = {"current": 0, "min": 2}
+        self.target_numb = {"current": 0, "min": 3}
         super().__init__(pos, size, COLORS.GREY)
 
         gun = ShootingRange.Gun({"x": 50, "y": self.size["h"] - 50})
