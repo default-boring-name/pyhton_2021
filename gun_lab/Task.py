@@ -1438,7 +1438,7 @@ class ShootingRange(SubScreen):
 
         def reflect(self, edge):
             '''
-            Функция, реализующая отражение пули при столкновении
+            Функция, реализующая отражение мишени при столкновении
             :param edge: словарь вида {dir, pos} c направлением
                          столкновения (флаг DIRECTION),
                          с положением объекта, с которым
@@ -1498,12 +1498,12 @@ class ShootingRange(SubScreen):
 
     class LinearTarget(Target):
         '''
-        Класс статичной мишени
+        Класс линейно движущейся мишени
         '''
 
         def __init__(self, pos):
             '''
-            Функция, инициализирующая статичную мишень
+            Функция, инициализирующая линейно движущуюся мишень
             :param pos: словарь {x, y} с позицией центра мишени
             '''
 
@@ -1527,6 +1527,75 @@ class ShootingRange(SubScreen):
                             self.sprite.get_rect())
             pg.draw.ellipse(self.sprite, COLORS.BLACK,
                             self.sprite.get_rect(), 2)
+
+    class ParabolicTarget(Target):
+        '''
+        Класс параболически движущейся мишени
+        '''
+
+        def __init__(self, pos):
+            '''
+            Функция, инициализирующая параболически движущуюся мишень
+            :param pos: словарь {x, y} с позицией центра мишени
+            '''
+
+            vel_r = random.randint(15, 20)
+            vel_phi = random.uniform(-math.pi, math.pi)
+            vel = {
+                   "x": vel_r * math.cos(vel_phi),
+                   "y": vel_r * math.sin(vel_phi)
+                  }
+
+            self.max_vel = {"x": abs(vel["x"]) * 1.5,
+                            "y": abs(vel["y"]) * 1.5}
+
+            accel_r = 1
+            accel_phi = random.uniform(-math.pi, math.pi)
+            accel = {
+                     "x": accel_r * math.cos(accel_phi),
+                     "y": accel_r * math.sin(accel_phi)
+                    }
+
+            reward = 75
+            r = random.randint(15, 30)
+            size = {"w": 2 * r, "h": 2 * r}
+            ref_pos = {"x": r, "y": r}
+
+            super().__init__(pos, size, ref_pos,
+                             vel, accel, reward)
+
+            pg.draw.ellipse(self.sprite, COLORS.BLUE,
+                            self.sprite.get_rect())
+            pg.draw.ellipse(self.sprite, COLORS.BLACK,
+                            self.sprite.get_rect(), 2)
+
+        def idle(self):
+            '''
+            Функия, описывающая движение параболически движущейся мишени
+            '''
+            super().idle()
+            for coor in "x", "y":
+                if abs(self.vel[coor]) > self.max_vel[coor]:
+                    self.vel[coor] = math.copysign(self.max_vel[coor] / 1.1,
+                                                   self.vel[coor])
+
+        def reflect(self, edge):
+            '''
+            Функция, реализующая отражение параболически
+            движущейся мишени при столкновении
+            :param edge: словарь вида {dir, pos} c направлением
+                         столкновения (флаг DIRECTION),
+                         с положением объекта, с которым
+                         столкнулась пуля
+            '''
+            super().reflect(edge)
+            accel_r = 1
+            accel_phi = random.uniform(-math.pi, math.pi)
+            accel = {
+                     "x": accel_r * math.cos(accel_phi),
+                     "y": accel_r * math.sin(accel_phi)
+                    }
+            self.accel = accel
 
     class Gun(GameObj):
         '''
@@ -1689,7 +1758,7 @@ class ShootingRange(SubScreen):
                 adjust = {"x": False, "y": True}
                 self.resize(new_size, adjust)
 
-    target_types = (StaticTarget, LinearTarget)
+    target_types = (StaticTarget, LinearTarget, ParabolicTarget)
 
     def __init__(self, pos, size):
         '''
